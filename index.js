@@ -17,7 +17,7 @@ var node = {
       username: 'voxelot',
       password: 'kittens',
       host: '127.0.0.1',
-      port: 8332 //29001
+      port: 8333 //29001
     }
   }
 }
