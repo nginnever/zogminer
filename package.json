@@ -17,6 +17,17 @@
   },
   "homepage": "https://github.com/nginnever/zcash-gpu-miner#readme",
   "dependencies": {
-    "jsonrpc2": "^0.1.1"
+    "bignum": "^0.12.5",
+    "binary": "^0.3.0",
+    "buffers": "^0.1.1",
+    "buffertools": "^2.1.4",
+    "colors": "^1.1.2",
+    "events": "^1.1.1",
+    "fs": "0.0.1-security",
+    "jsonrpc2": "^0.1.1",
+    "mkdirp": "^0.5.1",
+    "nooocl": "^0.11.1",
+    "path": "^0.12.7",
+    "winston": "^2.2.0"
   }
 }
