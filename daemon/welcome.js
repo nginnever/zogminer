@@ -1,10 +1,10 @@
-var Bitcoin = require('../lib/bitcoin');
+var Zcash = require('../lib/zcashxs');
 require('colors');
 
 var asciiArt = [" (" + "(".grey + "(B)".yellow + ")".grey + ") "];
 
 var message =
-  asciiArt+"BitcoinJS Daemon v"+Bitcoin.version+"\n" +
+  asciiArt+"BitcoinJS Daemon v"+Zcash.version+"\n" +
   "         Copyright (c) 2011-2012 BitcoinJS Project\n" +
   "\n" +
   " LICENSE This program is free software; you can redistribute it and/or modify\n" +
