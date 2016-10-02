@@ -26,6 +26,7 @@ var count = host.platformsCount
 var allPlatforms = host.getPlatforms()
 var gpuDevice = platform.gpuDevices()[0]
 var cpuDevice = platform.cpuDevices()[0]
+
 var maxComputeUnits = gpuDevice.maxComputeUnits
 console.log('GPU max compute threads ' + maxComputeUnits)
 
@@ -35,7 +36,7 @@ console.log('CPU max compute threads ' + maxComputeUnits)
 var context = new CLContext(gpuDevice)
 var queue = new CLCommandQueue(context, gpuDevice)
 
-var kernelSource = "kernel void copy(global float* src, global float* dst, uint begin)" +
+var kernelSource = "__kernel void copy(global float* src, global float* dst, uint begin)" +
     "{" +
     "uint idx = get_global_id(0);" +
     "dst[idx - 1] = src[idx + begin];" +

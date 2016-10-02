@@ -20,6 +20,7 @@
     "bignum": "^0.12.5",
     "binary": "^0.3.0",
     "bitcoin": "^3.0.1",
+    "blake2": "^1.4.0",
     "buffers": "^0.1.1",
     "buffertools": "^2.1.4",
     "colors": "^1.1.2",
