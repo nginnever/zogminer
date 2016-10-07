@@ -1,6 +1,7 @@
 'use strict'
 
 const opencl = require('./lib/opencl')
+const testKernel = require('./lib/kernels/test').test
 // const Server = require('./lib/rpc/jsonrpcserver').JsonRpcServer
 // const Connection = require('./lib/connection').Connection
 // const RpcClient = require('./lib/rpc/jsonrpcclient').JsonRpcClient
@@ -19,7 +20,8 @@ var kernelSource = "__kernel void copy(global float* src, global float* dst, uin
     "dst[idx - 1] = src[idx + begin];" +
     "}"
 
-device.build(kernelSource)
+
+device.build(testKernel)
 
 
 // configure hardcoded node
