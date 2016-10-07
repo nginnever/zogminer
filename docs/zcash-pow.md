@@ -33,7 +33,9 @@ With N = 23, P(A`) = 0.492703. We compute P(A) as
 
 So you can expect about a 50% chance of sharing a birthday with someone in a room with 23 people in it.
 
-###Equihash:
+###Equihash: 
+
+It is advised to read the white paper as all of this understanding was derived from it. 
 
 Cool, but why is that relevant to equihash? Equihash generalizes this process into an algorithm solve what is called the generalized-birthday, or k-XOR problem, which looks for a set of n-bit strings that XOR to zero. You can think of the birthday problem as telling you what your probability of finding a hash collision is given how many people or hash outputs you have.
 
@@ -55,9 +57,7 @@ We can expect to find a collision for k=1 with time complexity 2^n/2 when |L| > 
 
 There is further theory in the equihash whitepaper on the time-space complexity of this.
 
-###Basic  Wagner’s  algorithm  for  the  generalized
-
-It is advised to read the white paper as all of this understanding was derived from it. 
+###Basic  Wagner’s  algorithm  for  the  gbp
 
 birthday problem:
 
