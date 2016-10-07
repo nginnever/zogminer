@@ -51,9 +51,11 @@ blake2b(i1) xor blake2b(i2) xor ... blake2b(i2^k)
 
 Starting with k = 1. We can see that this is just a collision search over the hash output list L. 
 
-Assume we have a hash function with n possible outputs. Then if we apply what we know about the birthday problem, we know that we can expect to have a 50% chance of finding collisions when have the square root of n inputs.
+Assume we have a hash function with n possible outputs. Then if we apply what we know about the birthday problem, we know that we can expect to have a 50% chance of finding collisions when have we have approximately the square root of n inputs. 
 
-We can expect to find a collision for k=1 with time complexity 2^n/2 when |L| > 2^n/2 which is saying the number of people in the room is |L| and there need to be at least 2^n/2 of them to find a bday collision. Here n is equivalent to the number of days in a year in the birthday problem. So we obtain the probability of each rounds collision event as n - round/n. We want to tune this to where we expect two collisions or solutions on average. Due to the pigeon hole principle, if we had a list of length N of n-bit strings, if N = 2^n we will have a 100% chance of finding a collision. It only takes a list of N=23 in a hash function with 365 outputs to have 50% chance of collision.
+The following is an attempt to explain a bit of what the whitepaper talks about when it is trying to find the right parameters to meet the requirements listed for a goo asic resistant PoW. I won't go into full detail here but this is an intro to hash collision probability and how that can be used to estimate time and space complexity tradeoffs. Implementing equihash does not require understanding this but equihash bases its proof of being a memory-harden pow off of this analysis. TODO: study this more and look for ways to optimize beyond the white paper estimates. 
+
+We can expect to find a collision for k=1 with time complexity 2^n/2 when |L| > 2^n/2 which is saying the number of people in the room is |L| and there need to be at least 2^n/2 of them to find a bday collision in time 2^n/2. Here n is equivalent to the number of days in a year in the birthday problem. So we obtain the probability of each rounds (not) collision event as n - round/n. We want to tune this to where we expect two collisions or solutions on average. Due to the pigeon hole principle, if we had a list of length N of n-bit strings, if N = 2^n we will have a 100% chance of finding a collision. It only takes a list of N=23 in a hash function with 365 outputs to have 50% chance of collision.
 
 There is further theory in the equihash whitepaper on the time-space complexity of this.
 
@@ -65,25 +67,25 @@ Here I describe the process that zcashd and the current open source implementati
 
 We consider two parameters for the equihash PoW n and k. Where n = 200 and k = 9.
 
-Create a list L of N n-bit strings. N can be calculated by the following:
+Create a list L of N n-bit strings. The size of N can be calculated by the following:
 
 N = 2^(n/k+1)+1
 
 Where n = 200, k = 9, N = 2^21 = 2097152
 
-1) Create a table storing {hash: Xj, index: j} for each N.
+1) Create a table storing tuples {hash: Xj, index: j} for each N.
 
-2) Sort the list L by the hashes Xj and find unordered pairs (i, j) such that Xi collides with Xj on the first n/k+1 bits. Store those as tuples ``(Xi xor Xj, (i, j))`` in a new list L`.
+2) Sort the list L by the hashes Xj and find unordered pairs (i, j) such that Xi collides with Xj on the first n/k+1 bits. Store those as tuples (Xi xor Xj, (i, j)) in a new list L prime.
 
-3) Repeat the previous step on the new list L` on the next n/k+1 bits. To do this, we will call n/k+1 the collision_length. We will then loop over the hash on the first bits in range ((i-1)*l/8) to (i*l/8) where l = collision_length and i = the current k round. The 8 in the denominator is to convert bits to bytes. Store the new tuples in L` ` (Xi,j,k,l,  i,j,k,l).
+3) Repeat the previous step on the new list L prime on the next n/k+1 bits. To do this, we will call n/k+1 the collision_length. We will then loop over the hash on the first bits in range ((i-1)*l/8) to (i*l/8) where l = collision_length and i = the current k round. The 8 in the denominator is to convert bits to bytes. Store the new tuples in L double prime (Xi,j,k,l,  i,j,k,l).
 
-Example:
+Example calculation of collision range programmatically: n/k+1
 
-Round 1 - range = (1-1*20/8) to (1*20/8) = 0 to 20bits
+Round 1 - range = (1-1)(20) to (1)(20) = 0 to 20bits
 
-Round 2 - range = (2-1*20/8) to (2*20/8) = 20bits to 40bits
+Round 2 - range = (2-1)(20) to (2)(20) = 20bits to 40bits
 
-and so on until 2n/k+1 bits or 40 bits remain.
+and so on until 2n/k+1 bits or 40 bits remain of the original n=200
 
 
 The blake2b output length is a max of 64bytes = 64x8 = 512bits.
@@ -94,7 +96,7 @@ The blake2b output length is a max of 64bytes = 64x8 = 512bits.
 
 This is where things get a bit complicated.
 
-The generalized birthday problem needs some binding to be a PoW. The goal here is to use the fact that a foot print between list generations is carried over so that people cant supply other colliding bits to the lists between rounds. The intermediate 2^l xors have leading nl/k + 1 leading bits colliding.
+The generalized birthday problem needs some binding to be a PoW. The goal here is to use the fact that a foot print between list generations is carried over so that people cant supply other colliding bits to the lists between rounds. The intermediate 2^l XORs have leading nl/k + 1 leading bits colliding.
 
 ###Protocol:
 
