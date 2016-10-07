@@ -138,8 +138,8 @@ int main(void)
     //clSetKernelArg(kernel, 1, sizeof(cl_mem), &inputB);
     //clSetKernelArg(kernel, 2, sizeof(cl_mem), &output);
     
-    //global=init_size;
-    global=DATA_SIZE;
+    global=init_size;
+    //global=DATA_SIZE;
     
     printf("Starting list generation in GPU...\n");
     
