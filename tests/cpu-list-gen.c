@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 
 #define BLAKE2B_BLOCKBYTES 128
 #define BLAKE2B_OUTBYTES 64

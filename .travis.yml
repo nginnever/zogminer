@@ -9,7 +9,6 @@ before_install:
 script:
   - cd tests
   - make
-  - "./gpu-list"
   - "./cpu-list"
 branches:
   only:
