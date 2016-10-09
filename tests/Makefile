@@ -20,6 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+INC_DIR = deps
+
 ifeq ($(shell uname -s),Darwin)
 	CC ?= clang
 	LDLIBS += -lcurl -framework OpenCL
@@ -28,7 +30,7 @@ else
 	LDLIBS += -lOpenCL -lcurl
 endif
 
-CFLAGS += -c -std=c11 -Wall -pedantic -O2
+CFLAGS += -c -std=c11 -Wall -pedantic -O2 -I $(INC_DIR)
 
 TARGET = gpu-list cpu-list
 
