@@ -36,9 +36,8 @@ $ sudo dnf install \
 Fetch our repository with git and run fetch-params.sh like so:
 
 ```
-$ git clone https://github.com/zcash/zcash.git
-$ cd zcash/
-$ git checkout v1.0.0-beta2
+$ git clone https://github.com/nginnever/zogminer.git
+$ cd zogminer/
 $ ./zcutil/fetch-params.sh
 ```
 Ensure you have successfully installed all system dependencies as described above. Then run the build, e.g.:
