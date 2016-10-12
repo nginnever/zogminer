@@ -4,7 +4,7 @@
 #define CL_USE_DEPRECATED_OPENCL_2_0_APIS
 
 // Just for Hello World Kernel
-#define DATA_SIZE 10
+#define DATA_SIZE 100
 
 #if defined(__clang__)
 #pragma clang diagnostic push
@@ -19,27 +19,15 @@
 #else
 #include "cl.hpp"
 #endif
-
 #include <time.h>
 #include <functional>
 
+typedef uint32_t eh_index;typedef uint32_t eh_index;
+
 class cl_zogminer
 {
-//private:
-	//enum { c_maxSearchResults = 63, c_bufferCount = 2, c_hashBatchSize = 1024 };
 
 public:
-
-	/* Not needed yet
-	struct search_hook
-	{
-		virtual ~search_hook(); // always a virtual destructor for a class with virtuals.
-
-		// reports progress, return true to abort
-		virtual bool found(uint64_t const* nonces, uint32_t count) = 0;
-		virtual bool searched(uint64_t start_nonce, uint32_t count) = 0;
-	};
-	*/
 
 	cl_zogminer();
 	~cl_zogminer();
@@ -55,23 +43,20 @@ public:
 
 	// Currently just prints memory of the GPU
 	static bool configureGPU(
-		unsigned _platformId
-		//unsigned _localWorkSize,
-		//unsigned _globalWorkSize,
-		//unsigned _msPerBatch,
-		//bool _allowCPU,
-		//unsigned _extraGPUMemory
-		//uint64_t _currentBlock
+		unsigned _platformId,
+		unsigned _localWorkSize,
+		unsigned _globalWorkSize
 	);
 
 	bool init(
 		unsigned _platformId = 0,
-		unsigned _deviceId = 0
+		unsigned _deviceId = 0,
+		const char* _kernel = "gen_list"
 	);
+
+	void run(ulong& _headerIn);
+
 	void finish();
-
-	// void search(uint8_t const* _header, uint64_t _target, search_hook& _hook);
-
 
 	/* -- default values -- */
 	/// Default value of the local work size. Also known as workgroup size.
@@ -82,16 +67,17 @@ public:
 	static unsigned const c_defaultMSPerBatch;
 
 private:
+  static const unsigned int z_n = 200;
+  static const unsigned int z_k = 9;
+  static const size_t z_collision_bit_length = z_n / (z_k + 1);
+  static const eh_index z_N = 1 << (z_collision_bit_length + 1);
 
 	static std::vector<cl::Device> getDevices(std::vector<cl::Platform> const& _platforms, unsigned _platformId);
 	static std::vector<cl::Platform> getPlatforms();
-
 	cl::Context m_context;
 	cl::CommandQueue m_queue;
-	cl::Kernel m_hashKernel;
-	cl::Kernel m_searchKernel;
-	cl::Buffer m_input;
-	cl::Buffer m_output;
+	cl::Kernel m_zogKernel;
+	cl::Buffer m_base_state;
 	unsigned m_globalWorkSize;
 	bool m_openclOnePointOne;
 	unsigned m_deviceBits;

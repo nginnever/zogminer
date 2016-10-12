@@ -6,12 +6,10 @@
 //#include <chrono>
 #include <fstream>
 #include <iostream>
-#include <assert.h>
-//#include <queue>
+#include <queue>
 #include <vector>
 #include <random>
 //#include <atomic>
-//#include <sstream>
 #include "cl_zogminer.h"
 #include "cl_zogminer_kernel.h" // Created from CMake
 
@@ -160,42 +158,25 @@ unsigned cl_zogminer::getNumDevices(unsigned _platformId)
 
 // This needs customizing apon completion of the kernel - Checks memory requirements - May not be applicable
 bool cl_zogminer::configureGPU(
-	unsigned _platformId
-	//unsigned _localWorkSize,
-	//unsigned _globalWorkSize,
-	//unsigned _msPerBatch,
-	//bool _allowCPU,
-	//unsigned _extraGPUMemory
-	// uint64_t _currentBlock
+	unsigned _platformId,
+	unsigned _localWorkSize,
+	unsigned _globalWorkSize
 )
 {
-	//s_workgroupSize = _localWorkSize;
-	//s_initialGlobalWorkSize = _globalWorkSize;
-	//s_msPerBatch = _msPerBatch;
-	//s_allowCPU = _allowCPU;
-	//s_extraRequiredGPUMem = _extraGPUMemory;
+	// Set the local/global work sizes
+	s_workgroupSize = _localWorkSize;
+	s_initialGlobalWorkSize = _globalWorkSize;
 
 	return searchForAllDevices(_platformId, [](cl::Device const& _device) -> bool
 		{
 			cl_ulong result;
 			_device.getInfo(CL_DEVICE_GLOBAL_MEM_SIZE, &result);
 
-			//if (result >= requiredSize)
-			//{
 				CL_LOG(
 					"Found suitable OpenCL device [" << _device.getInfo<CL_DEVICE_NAME>()
 					<< "] with " << result << " bytes of GPU memory"
 				);
 				return true;
-			//}
-			/*
-			CL_LOG(
-				"OpenCL device " << _device.getInfo<CL_DEVICE_NAME>()
-				<< " has insufficient GPU memory." << result <<
-				" bytes of memory found < " << requiredSize << " bytes of memory required"
-			);
-			return false;
-		*/
 		}
 	);
 }
@@ -291,7 +272,8 @@ void cl_zogminer::finish()
 // Customise given kernel - This builds the kernel and creates memory buffers
 bool cl_zogminer::init(
 	unsigned _platformId,
-	unsigned _deviceId
+	unsigned _deviceId,
+	const char* _kernel
 )
 {
 	// get all platforms
@@ -364,12 +346,19 @@ bool cl_zogminer::init(
 			return false;
 		}
 
-		// create buffer kernel inputs (private variables)
+		try
+		{
+			m_zogKernel = cl::Kernel(program, _kernel);
+		}
+		catch (cl::Error const& err)
+		{
+			CL_LOG("ZOGKERNEL Creation failed: " << err.what() << "(" << err.err() << "). Bailing.");
+			return false;
+		}
 
-	  m_input = cl::Buffer(m_context, CL_MEM_READ_ONLY,
-	  sizeof(float) * DATA_SIZE, NULL, NULL);
-	  m_output = cl::Buffer(m_context, CL_MEM_WRITE_ONLY,
-	  sizeof(float) * DATA_SIZE, NULL, NULL);
+		// create buffer kernel inputs (private variables)
+	  m_base_state = cl::Buffer(m_context, CL_MEM_READ_ONLY,
+	  sizeof(unsigned long) * DATA_SIZE, NULL, NULL);
 
 	}
 	catch (cl::Error const& err)
@@ -380,25 +369,22 @@ bool cl_zogminer::init(
 	return true;
 }
 
-/*
-void cl_zogminer::search(uint8_t const* header, uint64_t target, search_hook& hook)
+
+void cl_zogminer::run(ulong& _headerIn)
 {
 	try
 	{
 		struct pending_batch
 		{
-			uint64_t start_nonce;
-			unsigned buf;
+			ulong headerIn;
+			//uint64_t start_nonce;
+			// potential other things
+			//unsigned buf;
 		};
 		queue<pending_batch> pending;
 
-		// this can't be a static because in MacOSX OpenCL implementation a segfault occurs when a static is passed to OpenCL functions
-		uint32_t const c_zero = 0;
-
-		// update header constant buffer
-		m_queue.enqueueWriteBuffer(m_header, false, 0, 32, header);
-		for (unsigned i = 0; i != c_bufferCount; ++i)
-			m_queue.enqueueWriteBuffer(m_searchBuffer[i], false, 0, 4, &c_zero);
+		// update buffer
+		m_queue.enqueueWriteBuffer(m_base_state, true, 0, sizeof(_headerIn), &_headerIn);
 
 #if CL_VERSION_1_2 && 0
 		cl::Event pre_return_event;
@@ -408,58 +394,41 @@ void cl_zogminer::search(uint8_t const* header, uint64_t target, search_hook& ho
 #endif
 			m_queue.finish();
 
-		unsigned argPos = 2;
-		m_searchKernel.setArg(1, m_header);
-		for (unsigned i = 0; i < m_dagChunksCount; ++i, ++argPos)
-			m_searchKernel.setArg(argPos, m_dagChunks[i]);
-		// pass these to stop the compiler unrolling the loops
-		m_searchKernel.setArg(argPos + 1, target);
-		m_searchKernel.setArg(argPos + 2, ~0u);
 
-		unsigned buf = 0;
+		// TODO: Check zcashd for methods for choosing nonces
+
+		/* This is for future loop and output timing
 		random_device engine;
 		uint64_t start_nonce = uniform_int_distribution<uint64_t>()(engine);
 		for (;; start_nonce += m_globalWorkSize)
 		{
 			auto t = chrono::high_resolution_clock::now();
-			// supply output buffer to kernel
-			m_searchKernel.setArg(0, m_searchBuffer[buf]);
-			if (m_dagChunksCount == 1)
-				m_searchKernel.setArg(3, start_nonce);
-			else
-				m_searchKernel.setArg(6, start_nonce);
-
-			// execute it!
-			m_queue.enqueueNDRangeKernel(m_searchKernel, cl::NullRange, m_globalWorkSize, s_workgroupSize);
-
-			pending.push({ start_nonce, buf });
-			buf = (buf + 1) % c_bufferCount;
-
-			// read results
-			if (pending.size() == c_bufferCount)
+		*/
+			CL_LOG("Running List Generation...100 Times :)");
+			for(uint i =0; i<DATA_SIZE;i++)
 			{
-				pending_batch const& batch = pending.front();
+				// Just send it numbers for now
 
-				// could use pinned host pointer instead
-				uint32_t* results = (uint32_t*)m_queue.enqueueMapBuffer(m_searchBuffer[batch.buf], true, CL_MAP_READ, 0, (1 + c_maxSearchResults) * sizeof(uint32_t));
-				unsigned num_found = min<unsigned>(results[0], c_maxSearchResults);
+				m_zogKernel.setArg(0, m_base_state);
+				// execute it!
+				// Here we assume an 1-Dimensional problem split into local worksizes
+				m_queue.enqueueNDRangeKernel(m_zogKernel, cl::NullRange, m_globalWorkSize, s_workgroupSize);
 
-				uint64_t nonces[c_maxSearchResults];
-				for (unsigned i = 0; i != num_found; ++i)
-					nonces[i] = batch.start_nonce + results[i + 1];
+				//pending.push({ start_nonce, buf });
+				//buf = (buf + 1) % c_bufferCount;
 
-				m_queue.enqueueUnmapMemObject(m_searchBuffer[batch.buf], results);
-				bool exit = num_found && hook.found(nonces, num_found);
-				exit |= hook.searched(batch.start_nonce, m_globalWorkSize); // always report searched before exit
-				if (exit)
-					break;
+				// read results - The results don't change... just template for now
+				ulong* results = (ulong*)m_queue.enqueueMapBuffer(m_base_state, true, CL_MAP_READ, 0, sizeof(unsigned long));
 
-				// reset search buffer if we're still going
-				if (num_found)
-					m_queue.enqueueWriteBuffer(m_searchBuffer[batch.buf], true, 0, 4, &c_zero);
+				if (i % 10 == 0){
+					CL_LOG("Iteration: " << i << " Result: " <<  *results);
+				}
+				// Unmap the mapped object
 
-				pending.pop();
-			}
+				m_queue.enqueueUnmapMemObject(m_base_state, results);
+
+			/* This may be useful to get regular outputs
+				TODO: Implement this for equihash kernel
 
 			// adjust global work size depending on last search time
 			if (s_msPerBatch)
@@ -498,6 +467,7 @@ void cl_zogminer::search(uint8_t const* header, uint64_t target, search_hook& ho
 					}
 				}
 			}
+			*/
 		}
 
 		// not safe to return until this is ready
@@ -511,4 +481,3 @@ void cl_zogminer::search(uint8_t const* header, uint64_t target, search_hook& ho
 		CL_LOG(err.what() << "(" << err.err() << ")");
 	}
 }
-*/

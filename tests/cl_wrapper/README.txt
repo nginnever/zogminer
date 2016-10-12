@@ -1,4 +1,4 @@
-# Quick README to compile. 
+Quick README to compile. 
 
 The kernel is written as a byte array and stored into a header file. This is automated by cmake. 
 
