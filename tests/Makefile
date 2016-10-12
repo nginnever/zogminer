@@ -24,10 +24,10 @@ INC_DIR = deps
 
 ifeq ($(shell uname -s),Darwin)
 	CC ?= clang
-	LDLIBS += -lcurl -framework OpenCL
+	LDLIBS += -framework OpenCL
 else
 	CC ?= gcc
-	LDLIBS += -lOpenCL -lcurl
+	LDLIBS += -lOpenCL
 endif
 
 CFLAGS += -c -std=c11 -Wall -pedantic -O2 -I $(INC_DIR)
