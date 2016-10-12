@@ -46,7 +46,7 @@ Ensure you have successfully installed all system dependencies as described abov
 $ ./zcutil/build.sh -j$(nproc)
 ```
 
-This should compile our dependencies and build zcashd. (Note: if you don't have nproc, then substitute the number of your processors.)
+This should compile our dependencies and build zcash-miner. (Note: if you don't have nproc, then substitute the number of your processors.)
 
 ## Running
 
