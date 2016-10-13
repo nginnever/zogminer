@@ -10,6 +10,8 @@
 #include "streams.h"
 #include "version.h"
 
+#include "gpusolver.h"
+
 #include <atomic>
 
 
@@ -29,6 +31,8 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos)
     arith_uint256 target;
     std::atomic_bool workReady {false};
     std::atomic_bool cancelSolver {false};
+
+    GPUSolver solver;
 
     miner->NewJob.connect(NewJob_t::slot_type(
         [&m_zmt, &header, &space, &offset, &inc, &target, &workReady, &cancelSolver]
@@ -124,17 +128,17 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos)
                     // We're a pooled miner, so try all solutions
                     return false;
                 };
-                std::function<bool(EhSolverCancelCheck)> cancelled =
-                        [&cancelSolver](EhSolverCancelCheck pos) {
+                std::function<bool(GPUSolverCancelCheck)> cancelled =
+                        [&cancelSolver](GPUSolverCancelCheck pos) {
                     boost::this_thread::interruption_point();
                     return cancelSolver.load();
                 };
                 try {
                     // If we find a valid block, we get more work
-                    if (EhOptimisedSolve(n, k, curr_state, validBlock, cancelled)) {
+                    if (solver.run(n, k, curr_state, validBlock, cancelled)) {
                         break;
                     }
-                } catch (EhSolverCancelledException&) {
+                } catch (GPUSolverCancelledException&) {
                     LogPrint("pow", "Equihash solver cancelled\n");
                     cancelSolver.store(false);
                     break;
