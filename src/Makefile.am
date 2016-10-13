@@ -32,6 +32,7 @@ LIBBITCOIN_UNIVALUE=univalue/libbitcoin_univalue.a
 LIBBITCOINQT=qt/libbitcoinqt.a
 LIBSECP256K1=secp256k1/libsecp256k1.la
 LIBZCASH=libzcash.a
+LIBZOGMINER=libzogminer.a
 
 $(LIBSECP256K1): $(wildcard secp256k1/src/*) $(wildcard secp256k1/include/*)
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C $(@D) $(@F)
@@ -45,7 +46,9 @@ EXTRA_LIBRARIES = \
   univalue/libbitcoin_univalue.a \
   libbitcoin_server.a \
   libbitcoin_cli.a \
-  libzcash.a
+  libzcash.a \
+  libzogminer.a
+
 if ENABLE_WALLET
 BITCOIN_INCLUDES += $(BDB_CPPFLAGS)
 EXTRA_LIBRARIES += libbitcoin_wallet.a
@@ -78,6 +81,9 @@ LIBZCASH_H = \
   zcash/Note.hpp \
   zcash/prf.h \
   zcash/util.h
+
+LIBZOGMINER_H = \
+  gpusolver.h
 
 .PHONY: FORCE check-security
 # bitcoin core #
@@ -222,7 +228,8 @@ libbitcoin_server_a_SOURCES = \
   validationinterface.cpp \
   $(JSON_H) \
   $(BITCOIN_CORE_H) \
-  $(LIBZCASH_H)
+  $(LIBZCASH_H) \
+  $(LIBZOGMINER_H)
 
 # wallet: shared between bitcoind and bitcoin-qt, but only linked
 # when wallet enabled
@@ -352,7 +359,8 @@ zcashd_LDADD = \
   $(LIBZCASH) \
   $(LIBLEVELDB) \
   $(LIBMEMENV) \
-  $(LIBSECP256K1)
+  $(LIBSECP256K1) \
+  $(LIBZOGMINER)
 
 if ENABLE_WALLET
 zcashd_LDADD += libbitcoin_wallet.a
@@ -366,7 +374,9 @@ zcashd_LDADD += \
   $(MINIUPNPC_LIBS) \
   $(LIBZCASH) \
   $(LIBBITCOIN_CRYPTO) \
-  $(LIBZCASH_LIBS)
+  $(LIBZCASH_LIBS) \
+  $(LIBZOGMINER) \
+  $(LIBZOGMINER_LIBS)
 #
 
 # bitcoin-cli binary #
@@ -429,6 +439,17 @@ libzcash_a_CXXFLAGS = $(HARDENED_CXXFLAGS) -fwrapv -fno-strict-aliasing
 libzcash_a_LDFLAGS = $(HARDENED_LDFLAGS)
 
 libzcash_a_CPPFLAGS += -DMONTGOMERY_OUTPUT
+
+libzogminer_a_SOURCES = \
+  gpusolver.cpp
+
+libzogminer_a_CPPFLAGS = -DMULTICORE -fopenmp -fPIC -DBINARY_OUTPUT -DCURVE_ALT_BN128 -DBOOST_SPIRIT_THREADSAFE -DHAVE_BUILD_INFO -D__STDC_FORMAT_MACROS $(HARDENED_CPPFLAGS) -pipe -O1 -g -Wstack-protector -fstack-protector-all -fPIE -fvisibility=hidden
+
+libzogminer_a_CXXFLAGS = $(HARDENED_CXXFLAGS) -fwrapv -fno-strict-aliasing
+
+libzogminer_a_LDFLAGS = $(HARDENED_LDFLAGS) -lOpenCL
+
+libzogminer_a_CPPFLAGS += -DMONTGOMERY_OUTPUT
 
 # bitcoinconsensus library #
 if BUILD_BITCOIN_LIBS

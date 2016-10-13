@@ -24,6 +24,8 @@
 #include <functional>
 #endif
 
+#include "gpusolver.h"
+
 #include "sodium.h"
 
 #include <boost/thread.hpp>
@@ -453,6 +455,8 @@ void static BitcoinMiner(CWallet *pwallet)
     unsigned int n = chainparams.EquihashN();
     unsigned int k = chainparams.EquihashK();
 
+    GPUSolver solver;
+
     std::mutex m_cs;
     bool cancelSolver = false;
     boost::signals2::connection c = uiInterface.NotifyBlockTip.connect(
@@ -555,15 +559,15 @@ void static BitcoinMiner(CWallet *pwallet)
 
                     return true;
                 };
-                std::function<bool(EhSolverCancelCheck)> cancelled = [&m_cs, &cancelSolver](EhSolverCancelCheck pos) {
+                std::function<bool(GPUSolverCancelCheck)> cancelled = [&m_cs, &cancelSolver](GPUSolverCancelCheck pos) {
                     std::lock_guard<std::mutex> lock{m_cs};
                     return cancelSolver;
                 };
                 try {
                     // If we find a valid block, we rebuild
-                    if (EhOptimisedSolve(n, k, curr_state, validBlock, cancelled))
+                    if (solver.run(n, k, curr_state, validBlock, cancelled))
                         break;
-                } catch (EhSolverCancelledException&) {
+                } catch (GPUSolverCancelledException&) {
                     LogPrint("pow", "Equihash solver cancelled\n");
                     std::lock_guard<std::mutex> lock{m_cs};
                     cancelSolver = false;

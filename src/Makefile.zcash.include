@@ -27,4 +27,6 @@ zcash_miner_LDADD = \
   $(BOOST_LIBS) \
   $(CRYPTO_LIBS) \
   $(LIBZCASH) \
-  $(LIBZCASH_LIBS)
+  $(LIBZCASH_LIBS) \
+  $(LIBZOGMINER) \
+  $(LIBZOGMINER_LIBS)
