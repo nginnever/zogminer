@@ -1,4 +1,5 @@
 // Copyright (c) 2016 Jack Grigg <jack@z.cash>
+// Copyright (c) 2016 Omar Alvarez <omar.alvarez@udc.es>
 // Distributed under the MIT software license, see the accompanying
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
