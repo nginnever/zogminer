@@ -31,7 +31,7 @@ On Fedora-based systems:
 ```
 $ sudo dnf install \
       git pkgconfig automake autoconf ncurses-devel python wget \
-      gtest-devel gcc gcc-c++ libtool patch opencl-headers mesa-devel
+      gtest-devel gcc gcc-c++ libtool patch opencl-headers mesa-libGL-devel
 ```
 
 Fetch our repository with git and run fetch-params.sh like so:
