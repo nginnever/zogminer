@@ -35,6 +35,8 @@ fi
 # BUG: parameterize the platform/host directory:
 PREFIX="$(pwd)/depends/x86_64-unknown-linux-gnu/"
 
+#cat src/cl_zogminer_kernel.cl | ./zcutil/stringify_ocl.sh > src/cl_zogminer_kernel.h
+
 make "$@" -C ./depends/ V=1 NO_QT=1
 ./autogen.sh
 ./configure --prefix="${PREFIX}" --with-gui=no "$HARDENING_ARG" "$LCOV_ARG" CXXFLAGS='-fwrapv -fno-strict-aliasing -g'
