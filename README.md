@@ -22,7 +22,8 @@ Install the dependencies. On Debian/Ubuntu-based systems:
 $ sudo apt-get install \
       build-essential pkg-config libc6-dev m4 g++-multilib \
       autoconf libtool ncurses-dev unzip git python \
-      zlib1g-dev wget bsdmainutils automake opencl-headers
+      zlib1g-dev wget bsdmainutils automake opencl-headers \
+      mesa-common-dev
 ```
 
 On Fedora-based systems:
@@ -30,7 +31,7 @@ On Fedora-based systems:
 ```
 $ sudo dnf install \
       git pkgconfig automake autoconf ncurses-devel python wget \
-      gtest-devel gcc gcc-c++ libtool patch opencl-headers
+      gtest-devel gcc gcc-c++ libtool patch opencl-headers mesa-devel
 ```
 
 Fetch our repository with git and run fetch-params.sh like so:
