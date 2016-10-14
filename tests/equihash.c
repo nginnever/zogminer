@@ -78,15 +78,6 @@ void hexout(unsigned char* digest_result) {
     printf("\n");
 }
 
-void check_error(cl_int ret, unsigned line_number) {
-    if(ret != 0) {
-        printf("%u\n",ret );
-        //fprintf(stderr, "An error occured on line %u: %s\n", line_number, get_error_string(ret));
-        fprintf(stderr, "An error occured on line %u\n", line_number);
-        exit(1);
-    }
-}
-
 typedef struct gpu_config {
     unsigned flags;
 
@@ -139,13 +130,11 @@ void init_program(gpu_config_t* config, const char* file_path, unsigned flags) {
     cl_int ret = 0;
     cl_int zero = 0;
 
-    check_error(clGetPlatformIDs(1, &config->platform_ids, &config->n_platforms), __LINE__);
-    check_error(clGetDeviceIDs(config->platform_ids, CL_DEVICE_TYPE_DEFAULT, 1, &config->device_ids, &config->n_devices), __LINE__);
+    clGetPlatformIDs(1, &config->platform_ids, &config->n_platforms);
+    clGetDeviceIDs(config->platform_ids, CL_DEVICE_TYPE_DEFAULT, 1, &config->device_ids, &config->n_devices);
     config->context = clCreateContext(NULL, 1, &config->device_ids, NULL, NULL, &ret);
-    check_error(ret, __LINE__);
 
     config->program = clCreateProgramWithSource(config->context, 1, &config->program_source_code, &config->program_source_code_size, &ret);
-    check_error(ret, __LINE__);
 
 
     cl_build_status status;
@@ -210,19 +199,19 @@ void init_program(gpu_config_t* config, const char* file_path, unsigned flags) {
 }
 
 void cleanup_program(gpu_config_t* config) {
-    check_error(clReleaseProgram(config->program), __LINE__);
-    check_error(clReleaseKernel(config->initial_hashing_kernel), __LINE__);
-    check_error(clReleaseKernel(config->collide_kernel), __LINE__);
-    check_error(clReleaseKernel(config->produce_solutions_kernel), __LINE__);
-    check_error(clReleaseCommandQueue(config->command_queue), __LINE__);
+    clReleaseProgram(config->program);
+    clReleaseKernel(config->initial_hashing_kernel);
+    clReleaseKernel(config->collide_kernel);
+    clReleaseKernel(config->produce_solutions_kernel);
+    clReleaseCommandQueue(config->command_queue);
 
 
-    check_error(clReleaseMemObject(config->src), __LINE__);
-    check_error(clReleaseMemObject(config->n_dst_elements), __LINE__);
-    check_error(clReleaseMemObject(config->n_solutions), __LINE__);
-    check_error(clReleaseMemObject(config->blake2b_digest), __LINE__);
-    check_error(clReleaseMemObject(config->dst_solutions), __LINE__);
-    check_error(clReleaseContext(config->context), __LINE__);
+    clReleaseMemObject(config->src);
+    clReleaseMemObject(config->n_dst_elements);
+    clReleaseMemObject(config->n_solutions);
+    clReleaseMemObject(config->blake2b_digest);
+    clReleaseMemObject(config->dst_solutions);
+    clReleaseContext(config->context);
 }
 
 
@@ -321,7 +310,7 @@ size_t equihash(uint32_t* dst_solutions, crypto_generichash_blake2b_state* diges
     clGetEventProfilingInfo(timing_events[9], CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
     clGetEventProfilingInfo(timing_events[9], CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL);
     fprintf(stderr, "step9: %0.3f ms\n", (time_end - time_start) / 1000000.0);
-    total_time += (time_end-time_start);
+    total_time += (timze_end-time_start);
 
     clEnqueueReadBuffer(config.command_queue, config.dst_solutions, CL_TRUE, 0, 10*NUM_INDICES*sizeof(uint32_t), dst_solutions, 0, NULL, NULL);
     clEnqueueReadBuffer(config.command_queue, config.n_solutions, CL_TRUE, 0, sizeof(uint32_t), &n_solutions, 0, NULL, NULL);
