@@ -57,16 +57,6 @@ typedef struct element {
     uint16_t indices[NUM_INDICE_BYTES_PER_ELEMENT / 8];
 } element_t;
 
-uint32_t bswap_32(uint32_t x)
-{
-    return (((x & 0xff000000U) >> 24) | ((x & 0x00ff0000U) >>  8) |
-    ((x & 0x0000ff00U) << 8) | ((x & 0x000000ffU) << 24));
-}
-
-uint32_t htole32(uint32_t little_endian_bits)
-{
-    return bswap_32(little_endian_bits);
-}
 
 void hexout(unsigned char* digest_result) {
     for(unsigned i = 0; i < 4; ++i) {
@@ -310,7 +300,7 @@ size_t equihash(uint32_t* dst_solutions, crypto_generichash_blake2b_state* diges
     clGetEventProfilingInfo(timing_events[9], CL_PROFILING_COMMAND_START, sizeof(time_start), &time_start, NULL);
     clGetEventProfilingInfo(timing_events[9], CL_PROFILING_COMMAND_END, sizeof(time_end), &time_end, NULL);
     fprintf(stderr, "step9: %0.3f ms\n", (time_end - time_start) / 1000000.0);
-    total_time += (timze_end-time_start);
+    total_time += (time_end-time_start);
 
     clEnqueueReadBuffer(config.command_queue, config.dst_solutions, CL_TRUE, 0, 10*NUM_INDICES*sizeof(uint32_t), dst_solutions, 0, NULL, NULL);
     clEnqueueReadBuffer(config.command_queue, config.n_solutions, CL_TRUE, 0, sizeof(uint32_t), &n_solutions, 0, NULL, NULL);
