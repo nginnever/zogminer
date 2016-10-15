@@ -37,6 +37,9 @@ PREFIX="$(pwd)/depends/x86_64-unknown-linux-gnu/"
 
 #cat src/cl_zogminer_kernel.cl | ./zcutil/stringify_ocl.sh > src/cl_zogminer_kernel.h
 
+# This is a simpler solution. It doesn't strip comments however. I think most linux machines have xxd. 
+xxd -i src/cl_zogminer_kernel.cl |  sed 's/unsigned/const unsigned/;s/unsigned int/size_t/;s/src_cl_zogminer_kernel_cl/CL_MINER_KERNEL/;s/_len/_SIZE/'> src/cl_zogminer_kernel.h
+
 make "$@" -C ./depends/ V=1 NO_QT=1
 ./autogen.sh
 ./configure --prefix="${PREFIX}" --with-gui=no "$HARDENING_ARG" "$LCOV_ARG" CXXFLAGS='-fwrapv -fno-strict-aliasing -g'
