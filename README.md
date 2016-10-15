@@ -12,7 +12,7 @@ Check the project's [roadmap](https://github.com/nginnever/zogminer/blob/master/
 
 ## Building
 
-First make sure OpenCL is correctly installed in your system.
+First make sure OpenCL is correctly installed in your system. If you are having issues, take a look at our [Ubuntu Guide](https://github.com/nginnever/zogminer/wiki/Ubuntu-16.04-Setup) or [Fedora Guide](https://github.com/nginnever/zogminer/wiki/Fedora-24-Setup).
 
 ### Unix
 
