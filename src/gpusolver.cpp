@@ -21,6 +21,8 @@
  * SOFTWARE.
  */
 
+#include <chrono>
+
 #include "gpusolver.h"
 
 GPUSolver::GPUSolver() {
@@ -52,7 +54,7 @@ GPUSolver::GPUSolver() {
 	*/
 	GPU = miner->configureGPU(0, 1, global_work_size);
 	if(!GPU)
-		std::cout << "ERROR: No suitable GPU found! No work will be performed!\n";
+		std::cout << "ERROR: No suitable GPU found! No work will be performed!" << std::endl;
 
 	/*Initialize the kernel, compile it and create buffers
 	Currently runs for the gpu-list-gen.c kernel DATA_SIZE=100 times
@@ -97,8 +99,13 @@ bool GPUSolver::GPUSolve200_9(const eh_HashState& base_state,
 	@params ulong& headerIn - Sends to kernel in a buffer. Will update for specific kernels
 	*/
     ulong foo = 3;
-	if(GPU)
+
+	if(GPU) {
+        auto t = std::chrono::high_resolution_clock::now();
     	miner->run(foo);
+		auto d = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t);
+		std::cout << "Kernel run took " << std::chrono::duration_cast<std::chrono::milliseconds>(d).count() << " ms." << std::endl;
+	}
 
     //TODO Check this, now it is a dummy value
     return false;
