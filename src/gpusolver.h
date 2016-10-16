@@ -29,6 +29,7 @@
 #include <iostream>
 
 #include "crypto/equihash.h"
+#include "cl_zogminer.h"
 
 #ifdef __APPLE__
 #include <OpenCL/opencl.h>
@@ -53,17 +54,21 @@ enum GPUSolverCancelCheck
 };
 
 class GPUSolver {
-	
-private:
-	//TODO Really wasteful initialize and compile kernels once, not for every iter
-	bool GPUSolve200_9(const eh_HashState& base_state,
-		         	const std::function<bool(std::vector<unsigned char>)> validBlock,
-				const std::function<bool(GPUSolverCancelCheck)> cancelled);
 
 public:
 	GPUSolver();
+	~GPUSolver();
         bool run(unsigned int n, unsigned int k, const eh_HashState& base_state,
 		            const std::function<bool(std::vector<unsigned char>)> validBlock,
+				const std::function<bool(GPUSolverCancelCheck)> cancelled);
+
+private:
+	cl_zogminer * miner;
+	bool GPU;
+
+	//TODO Really wasteful initialize and compile kernels once, not for every iter
+	bool GPUSolve200_9(const eh_HashState& base_state,
+		         	const std::function<bool(std::vector<unsigned char>)> validBlock,
 				const std::function<bool(GPUSolverCancelCheck)> cancelled);
 
 };
