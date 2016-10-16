@@ -5,11 +5,13 @@ compiler:
 before_install:
   - sudo add-apt-repository --yes ppa:ubuntu-toolchain-r/test
   - sudo apt-get update && sudo apt-get install -y fglrx opencl-headers lcov doxygen gcc-4.8 g++-4.8 clang
+  - sudo apt-get install -y build-essential pkg-config libc6-dev m4 g++-multilib \
+      autoconf libtool ncurses-dev unzip git python \
+      zlib1g-dev wget bsdmainutils automake opencl-headers \
+      mesa-common-dev 
   - if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
 script:
-  - cd tests
-  - make
-  - "./cpu-list"
+  - ./zcutil/build.sh -j$(nproc)
 branches:
   only:
     - master
