@@ -102,9 +102,12 @@ bool GPUSolver::GPUSolve200_9(const eh_HashState& base_state,
 
 	if(GPU) {
         auto t = std::chrono::high_resolution_clock::now();
+
     	miner->run(foo);
+
 		auto d = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t);
-		std::cout << "Kernel run took " << std::chrono::duration_cast<std::chrono::milliseconds>(d).count() << " ms." << std::endl;
+		auto milis = std::chrono::duration_cast<std::chrono::milliseconds>(d).count();
+		std::cout << "Kernel run took " << milis << " ms. (" << 1000.f/milis << " H/s)" << std::endl;
 	}
 
     //TODO Check this, now it is a dummy value
