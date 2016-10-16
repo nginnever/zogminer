@@ -11,7 +11,7 @@
 #include "streams.h"
 #include "version.h"
 
-#include "gpusolver.h"
+#include "libzogminer/gpusolver.h"
 
 #include <atomic>
 

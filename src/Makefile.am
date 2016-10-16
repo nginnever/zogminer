@@ -83,10 +83,10 @@ LIBZCASH_H = \
   zcash/util.h
 
 LIBZOGMINER_H = \
-  gpusolver.h \
-  cl_zogminer_kernel.h \
-  cl_zogminer.h \
-  cl.hpp
+  libzogminer/gpusolver.h \
+  libzogminer/kernels/cl_zogminer_kernel.h \
+  libzogminer/cl_zogminer.h \
+  libzogminer/cl.hpp
 
 .PHONY: FORCE check-security
 # bitcoin core #
@@ -444,8 +444,8 @@ libzcash_a_LDFLAGS = $(HARDENED_LDFLAGS)
 libzcash_a_CPPFLAGS += -DMONTGOMERY_OUTPUT
 
 libzogminer_a_SOURCES = \
-  gpusolver.cpp \
-  cl_zogminer.cpp
+  libzogminer/gpusolver.cpp \
+  libzogminer/cl_zogminer.cpp
 
 libzogminer_a_CPPFLAGS = -DMULTICORE -fopenmp -fPIC -DBINARY_OUTPUT -DCURVE_ALT_BN128 -DBOOST_SPIRIT_THREADSAFE -DHAVE_BUILD_INFO -D__STDC_FORMAT_MACROS $(HARDENED_CPPFLAGS) -pipe -O1 -g -Wstack-protector -fstack-protector-all -fPIE -fvisibility=hidden
 

@@ -11,7 +11,7 @@
 #include <random>
 //#include <atomic>
 #include "cl_zogminer.h"
-#include "cl_zogminer_kernel.h" // Created from CMake
+#include "kernels/cl_zogminer_kernel.h" // Created from CMake
 
 // workaround lame platforms
 #if !CL_VERSION_1_2
