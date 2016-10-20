@@ -38,7 +38,11 @@ GPUSolver::GPUSolver() {
 	unsigned int z_k = 9;
 	size_t z_collision_bit_length = z_n / (z_k + 1);
 	eh_index z_N = 1 << (z_collision_bit_length + 1);
-	uint32_t global_work_size = z_N;
+	//uint32_t global_work_size = z_N;
+
+	//TODO This looks like IND_PER_BUCKET, enough for GPU?
+	size_t global_work_size = 1 << 10;
+    size_t local_work_size = 256;
 
 	miner = new cl_zogminer();
 	miner->listDevices();
@@ -52,7 +56,7 @@ GPUSolver::GPUSolver() {
 	@params: unsigned localWorkSizes
 	@params: unsigned globalWorkSizes
 	*/
-	GPU = miner->configureGPU(0, 1, global_work_size);
+	GPU = miner->configureGPU(0, local_work_size, global_work_size);
 	if(!GPU)
 		std::cout << "ERROR: No suitable GPU found! No work will be performed!" << std::endl;
 
@@ -63,8 +67,9 @@ GPUSolver::GPUSolver() {
 	@params: unsigned _deviceId
 	@params: string& _kernel - The name of the kernel for dev purposes
 	*/
+	std::vector<std::string> kernels {"initial_bucket_hashing", "bucket_collide_and_hash", "produce_solutions"};
 	if(GPU)
-		miner->init(0,0,"list_gen");
+		miner->init(0, 0, kernels);
 
 }
 
@@ -89,21 +94,19 @@ bool GPUSolver::run(unsigned int n, unsigned int k, const eh_HashState& base_sta
 
 }
 
-//TODO Really wasteful initialize and compile kernels once, not for every iter
 bool GPUSolver::GPUSolve200_9(const eh_HashState& base_state,
                  	const std::function<bool(std::vector<unsigned char>)> validBlock,
 			const std::function<bool(GPUSolverCancelCheck)> cancelled) {
 
 	/* Run the kernel
 	TODO: Optimise and figure out how we want this to go
-	@params ulong& headerIn - Sends to kernel in a buffer. Will update for specific kernels
+	@params eh_HashState& base_state - Sends to kernel in a buffer. Will update for specific kernels
 	*/
-    ulong foo = 3;
-
+    
 	if(GPU) {
         auto t = std::chrono::high_resolution_clock::now();
 
-    	miner->run(foo);
+    	miner->run(base_state);
 
 		auto d = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t);
 		auto milis = std::chrono::duration_cast<std::chrono::milliseconds>(d).count();

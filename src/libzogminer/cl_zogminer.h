@@ -22,7 +22,42 @@
 #include <time.h>
 #include <functional>
 
-typedef uint32_t eh_index;typedef uint32_t eh_index;
+#include "sodium.h"
+
+#define EQUIHASH_N 200
+#define EQUIHASH_K 9
+
+#define NUM_COLLISION_BITS (EQUIHASH_N / (EQUIHASH_K + 1))
+#define NUM_INDICES (1 << EQUIHASH_K)
+
+#define NUM_COMPRESSED_INDICE_BITS 16
+#define NUM_DECOMPRESSED_INDICE_BITS (NUM_COLLISION_BITS+1)
+
+#define NUM_INDICE_BYTES_PER_ELEMENT (((NUM_INDICES/2) * NUM_COMPRESSED_INDICE_BITS + 7) / 8)
+#define NUM_VALUES (1 << (NUM_COLLISION_BITS+1))
+#define NUM_INDICES_PER_BUCKET (1 << 10)
+#define NUM_STEP_INDICES (8*NUM_VALUES)
+#define NUM_BUCKETS (1 << NUM_COLLISION_BITS)/NUM_INDICES_PER_BUCKET
+#define DIGEST_SIZE 32
+
+typedef struct element_indice {
+    uint32_t a;
+    uint32_t b;
+} element_indice_t;
+
+typedef struct element {
+    uint8_t digest[DIGEST_SIZE];
+    uint32_t a;
+    uint32_t b;
+} element_t;
+
+typedef struct bucket {
+    uint32_t tmp;
+    uint32_t size;
+    element_t data[NUM_INDICES_PER_BUCKET*4];
+} bucket_t;
+
+typedef uint32_t eh_index;
 
 class cl_zogminer
 {
@@ -49,12 +84,12 @@ public:
 	);
 
 	bool init(
-		unsigned _platformId = 0,
-		unsigned _deviceId = 0,
-		const char* _kernel = "gen_list"
+		unsigned _platformId,
+		unsigned _deviceId,
+		std::vector<std::string> _kernels
 	);
 
-	void run(ulong& _headerIn);
+	void run(crypto_generichash_blake2b_state base_state);
 
 	void finish();
 
@@ -76,8 +111,16 @@ private:
 	static std::vector<cl::Platform> getPlatforms();
 	cl::Context m_context;
 	cl::CommandQueue m_queue;
-	cl::Kernel m_zogKernel;
-	cl::Buffer m_base_state;
+	std::vector<cl::Kernel> m_zogKernels;
+	cl::Buffer m_indices;
+	cl::Buffer m_src_bucket;
+	cl::Buffer m_dst_bucket;
+	cl::Buffer m_blake2b_digest;
+	cl::Buffer m_dst_solutions;
+	cl::Buffer m_n_solutions;
+	uint32_t * solutions;
+	uint32_t * dst_solutions;
+	
 	unsigned m_globalWorkSize;
 	bool m_openclOnePointOne;
 	unsigned m_deviceBits;

@@ -265,6 +265,11 @@ void cl_zogminer::listDevices()
 
 void cl_zogminer::finish()
 {
+	
+	// Unmap the mapped object
+	m_queue.enqueueUnmapMemObject(m_dst_solutions, dst_solutions);
+	m_queue.enqueueUnmapMemObject(m_n_solutions, solutions);
+
 	if (m_queue())
 		m_queue.finish();
 }
@@ -273,7 +278,7 @@ void cl_zogminer::finish()
 bool cl_zogminer::init(
 	unsigned _platformId,
 	unsigned _deviceId,
-	const char* _kernel
+	const std::vector<std::string> _kernels
 )
 {
 	// get all platforms
@@ -326,7 +331,7 @@ bool cl_zogminer::init(
 		// into a byte array by bin2h.cmake. There is no need to load the file by hand in runtime
 		string code(CL_MINER_KERNEL, CL_MINER_KERNEL + CL_MINER_KERNEL_SIZE);
 		// add required definitions here
-		addDefinition(code, "GROUP_SIZE", s_workgroupSize);
+		//addDefinition(code, "GROUP_SIZE", s_workgroupSize);
 		//addDefinition(code, "ACCESSES", ACCESSES);
 
 		// create miner OpenCL program
@@ -348,7 +353,8 @@ bool cl_zogminer::init(
 
 		try
 		{
-			m_zogKernel = cl::Kernel(program, _kernel);
+			for (auto & _kernel : _kernels) 
+				m_zogKernels.push_back(cl::Kernel(program, _kernel.c_str()));
 		}
 		catch (cl::Error const& err)
 		{
@@ -356,9 +362,15 @@ bool cl_zogminer::init(
 			return false;
 		}
 
-		// create buffer kernel inputs (private variables)
-	  m_base_state = cl::Buffer(m_context, CL_MEM_READ_ONLY,
-	  sizeof(unsigned long) * DATA_SIZE, NULL, NULL);
+		// TODO create buffer kernel inputs (private variables)
+	  	m_indices = cl::Buffer(m_context, CL_MEM_READ_WRITE, NUM_STEP_INDICES * sizeof(element_indice_t) * EQUIHASH_K, NULL, NULL);
+		// TODO fill buffers with 0's or contents
+
+		m_src_bucket = cl::Buffer(m_context, CL_MEM_READ_WRITE, NUM_BUCKETS * sizeof(bucket_t), NULL, NULL);
+		m_dst_bucket = cl::Buffer(m_context, CL_MEM_READ_WRITE, NUM_BUCKETS * sizeof(bucket_t), NULL, NULL);
+		m_blake2b_digest = cl::Buffer(m_context, CL_MEM_READ_WRITE, sizeof(crypto_generichash_blake2b_state), NULL, NULL);
+		m_dst_solutions = cl::Buffer(m_context, CL_MEM_READ_WRITE, 20*NUM_INDICES*sizeof(uint32_t), NULL, NULL);
+		m_n_solutions = cl::Buffer(m_context, CL_MEM_READ_WRITE, sizeof(uint32_t), NULL, NULL);
 
 	}
 	catch (cl::Error const& err)
@@ -370,30 +382,15 @@ bool cl_zogminer::init(
 }
 
 
-void cl_zogminer::run(ulong& _headerIn)
+void cl_zogminer::run(crypto_generichash_blake2b_state base_state)
 {
 	try
 	{
-		struct pending_batch
-		{
-			ulong headerIn;
-			//uint64_t start_nonce;
-			// potential other things
-			//unsigned buf;
-		};
-		queue<pending_batch> pending;
 
 		// update buffer
-		m_queue.enqueueWriteBuffer(m_base_state, true, 0, sizeof(_headerIn), &_headerIn);
+		m_queue.enqueueWriteBuffer(m_blake2b_digest, true, 0, sizeof(crypto_generichash_blake2b_state), &base_state);
 
-#if CL_VERSION_1_2 && 0
-		cl::Event pre_return_event;
-		if (!m_opencl_1_1)
-			m_queue.enqueueBarrierWithWaitList(NULL, &pre_return_event);
-		else
-#endif
-			m_queue.finish();
-
+		m_queue.enqueueBarrier();
 
 		// TODO: Check zcashd for methods for choosing nonces
 
@@ -404,28 +401,68 @@ void cl_zogminer::run(ulong& _headerIn)
 		{
 			auto t = chrono::high_resolution_clock::now();
 		*/
-			CL_LOG("Running List Generation...100 Times :)");
-			for(uint i =0; i<DATA_SIZE;i++)
-			{
-				// Just send it numbers for now
 
-				m_zogKernel.setArg(0, m_base_state);
-				// execute it!
-				// Here we assume an 1-Dimensional problem split into local worksizes
-				m_queue.enqueueNDRangeKernel(m_zogKernel, cl::NullRange, m_globalWorkSize, s_workgroupSize);
+		CL_LOG("Running Solver...");
+		// Just send it numbers for now
+	
+		//TODO find out why it is segfaulting
+		/*m_zogKernels[0].setArg(0, m_src_bucket);
+		m_zogKernels[0].setArg(1, m_blake2b_digest);
+		// execute it!
+		// Here we assume an 1-Dimensional problem split into local worksizes
+		m_queue.enqueueNDRangeKernel(m_zogKernels[0], cl::NullRange, m_globalWorkSize, s_workgroupSize);
 
-				//pending.push({ start_nonce, buf });
-				//buf = (buf + 1) % c_bufferCount;
+		m_queue.enqueueBarrier();*/
 
-				// read results - The results don't change... just template for now
-				ulong* results = (ulong*)m_queue.enqueueMapBuffer(m_base_state, true, CL_MAP_READ, 0, sizeof(unsigned long));
+		uint32_t i = 1;
+    	for(i = 1; i < EQUIHASH_K; ++i) {
 
-				if (i % 10 == 0){
-					CL_LOG("Iteration: " << i << " Result: " <<  *results);
-				}
-				// Unmap the mapped object
+			std::cout << "Step: " << i << "..." << std::endl;	
 
-				m_queue.enqueueUnmapMemObject(m_base_state, results);
+			m_zogKernels[1].setArg(0, m_dst_bucket);
+			m_zogKernels[1].setArg(1, m_src_bucket);	
+			m_zogKernels[1].setArg(2, m_indices);	
+			m_zogKernels[1].setArg(3, i);	
+
+			m_queue.enqueueNDRangeKernel(m_zogKernels[1], cl::NullRange, m_globalWorkSize, s_workgroupSize);
+
+			m_queue.enqueueBarrier();
+
+			cl::Buffer tmp_bucket = m_dst_bucket;
+		    m_dst_bucket = m_src_bucket;
+		    m_src_bucket = tmp_bucket;
+
+		}
+
+		uint32_t n_solutions = 0;
+
+		m_zogKernels[2].setArg(0, m_src_bucket);
+		m_zogKernels[2].setArg(1, m_indices);	
+		m_zogKernels[2].setArg(2, m_blake2b_digest);		
+
+		m_queue.enqueueNDRangeKernel(m_zogKernels[2], cl::NullRange, m_globalWorkSize, s_workgroupSize);
+
+		m_queue.enqueueBarrier();
+
+		//pending.push({ start_nonce, buf });
+		//buf = (buf + 1) % c_bufferCount;
+/*#if CL_VERSION_1_2 && 0
+		cl::Event pre_return_event;
+		if (!m_opencl_1_1)
+			m_queue.enqueueBarrierWithWaitList(NULL, &pre_return_event);
+		else
+#endif
+			m_queue.finish();*/
+
+		// read results - The results don't change... just template for now
+		dst_solutions = (uint32_t*)m_queue.enqueueMapBuffer(m_dst_solutions, true, CL_MAP_READ, 0, 10*NUM_INDICES*sizeof(uint32_t));
+		solutions = (uint32_t*)m_queue.enqueueMapBuffer(m_n_solutions, true, CL_MAP_READ, 0, sizeof(uint32_t));	
+
+		m_queue.finish();
+
+		/*if (i % 10 == 0){
+			CL_LOG("Iteration: " << i << " Result: " <<  *results);
+		}*/
 
 			/* This may be useful to get regular outputs
 				TODO: Implement this for equihash kernel
@@ -468,7 +505,7 @@ void cl_zogminer::run(ulong& _headerIn)
 				}
 			}
 			*/
-		}
+		//}
 
 		// not safe to return until this is ready
 #if CL_VERSION_1_2 && 0
