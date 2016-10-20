@@ -657,3 +657,103 @@ __kernel void initial_bucket_hashing(__global bucket_t* dst, __global const blak
 
     }
 }
+
+
+__kernel void bucket_collide_and_hash(__global bucket_t* dst, __global bucket_t* src, __global element_indice_t* indices, uint32_t step_index) {
+    uint32_t z = get_global_id(0);
+    // select the starting bit based on the current step ROUND
+    // this will increment by by 20 bits in n=200... 0,20,40,60...140
+    // step 9 is bits 160-180
+    size_t start_bit = ((step_index-1) * NUM_COLLISION_BITS);
+    size_t last_bit = ((step_index) * NUM_COLLISION_BITS);
+    // the start is the global id since the number of buckets
+    // is equal to the number of global work items 1024
+    size_t start = get_global_id(0) * (NUM_BUCKETS / get_global_size(0));
+    // end is one index up in the global work items
+    size_t end = (get_global_id(0)+1) * (NUM_BUCKETS / get_global_size(0));
+    // the indice index is offset from the work item id by 
+    // the number of indices needed to be in each work item
+    size_t indice_index = get_global_id(0) * (NUM_STEP_INDICES / get_global_size(0));
+    // get the last steps indices from global mem
+    __global element_indice_t* old_indices = indices + NUM_STEP_INDICES*(step_index-1);
+
+    for(uint32_t i = start; i < end; ++i){
+        __global bucket_t* bucket = src + 1;
+        uint8_t sub_bucket_sizes[NUM_INDICES_PER_BUCKET];
+        uint32_t sub_buckets[NUM_INDICES_PER_BUCKET][16];
+        memset(sub_bucket_sizes, '\0', NUM_INDICES_PER_BUCKET * sizeof(uint8_t));
+
+        for(uint32_t j = 0; j < bucket->size; ++j){
+            uint32_t sub_index = mask_collision_bits_global((bucket->data+j)->digest, start_bit) % NUM_INDICES_PER_BUCKET;
+            sub_buckets[sub_index][sub_bucket_sizes[sub_index]++] = j;
+        }
+
+        for(uint32_t o = 0; o < NUM_INDICES_PER_BUCKET; ++o){
+            uint32_t* sub_bucket_indices = sub_buckets[o];
+            uint32_t sub_bucket_size = sub_bucket_sizes[o];
+
+            for(uint32_t j = 0; j < sub_bucket_size && sub_bucket_size > 1; ++j){
+                __global element_t* base = bucket->data + sub_bucket_indices[j];
+                uint32_t base_bits = mask_collision_bits_global(base->digest, last_bit);
+                old_indices[indice_index].a = base->a;
+                old_indices[indice_index].b = base->b;
+
+                for(uint32_t k = j + 1; k < sub_bucket_size; ++k){
+                    __global element_t* el = bucket->data + sub_bucket_indices[k];
+                    uint32_t new_index = base_bits ^ mask_collision_bits_global(el->digest, last_bit);
+                    if(new_index == 0) continue;
+                    new_index /= NUM_INDICES_PER_BUCKET;
+
+                    __global bucket_t* dst_bucket = dst + new_index;
+                    __global element_t* new_el = dst_bucket->data + atomic_add(&dst_bucket->size, 1);
+                    xor_elements(new_el->digest, base->digest, el->digest);
+                    new_el->a = indice_index;
+                    new_el->b = indice_index + (k-j);
+                }
+                indice_index++;
+            }
+        }
+
+        bucket->size = 0;
+    }
+    if(get_global_id(0) == get_global_size(0) - 1) {
+        printf("indices: %u\n", indice_index);
+    }
+
+    if(z == 123) {
+        //printf("start_bit: %u\n", start_bit);
+        //printf("last_bit: %u\n", last_bit);
+        //printf("indice index: %u\n", NUM_STEP_INDICES);
+        //printf("last a: %u\n", old_indices->a);
+    }
+    
+}
+
+__kernel void produce_solutions(__global bucket_t* src, __global element_indice_t* src_indices, __global const blake2b_state* digest) {
+    uint32_t z = get_global_id(0);
+    uint32_t n_solutions = 0;
+    size_t start_bit = ((EQUIHASH_K-1) * NUM_COLLISION_BITS);
+    size_t last_bit = ((EQUIHASH_K) * NUM_COLLISION_BITS);
+    size_t start = get_global_id(0) * (NUM_BUCKETS / get_global_size(0));
+    size_t end = (get_global_id(0) + 1) * (NUM_BUCKETS / get_global_size(0));
+
+    __global element_indice_t* indices[9];
+    for(size_t i = 0; i < EQUIHASH_K; ++i){
+        indices[i] = src_indices + NUM_STEP_INDICES * i;
+    }
+
+    for(uint32_t i = start; i < end; ++i){
+        __global bucket_t* bucket = src + i;
+        uint32_t sub_bucket_sizes[NUM_INDICES_PER_BUCKET];
+        uint32_t sub_buckets[NUM_INDICES_PER_BUCKET][20];
+        memset(sub_bucket_sizes, '\0', NUM_INDICES_PER_BUCKET * sizeof(uint32_t));
+
+    }
+
+    if(z == 123) {
+        printf("start_bit: %u\n", start_bit);
+        printf("last_bit: %u\n", last_bit);
+        printf("start: %u\n", start);
+        printf("end: %u\n", end);
+    }
+}
