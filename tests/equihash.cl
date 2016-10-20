@@ -14,6 +14,9 @@
 #define NUM_BUCKETS (1 << NUM_COLLISION_BITS)/NUM_INDICES_PER_BUCKET
 #define DIGEST_SIZE 32
 
+
+
+
 /* START OF BLAKE2B CODE */
 /*
    BLAKE2 reference source code package - reference C implementations
@@ -484,7 +487,7 @@ int blake2b_final( blake2b_state *S, uint8_t *out, uint8_t outlen )
 {
   uint8_t buffer[BLAKE2B_OUTBYTES] = {0};
 
-  if( out == 0 || outlen == 0 || outlen > BLAKE2B_OUTBYTES )
+  if( out == NULL || outlen == 0 || outlen > BLAKE2B_OUTBYTES )
     return -1;
 
   if( blake2b_is_lastblock( S ) )
@@ -521,11 +524,11 @@ void blake2b(uint8_t *out,
   blake2b_state S[1];
 
   /* Verify parameters */
-  if ( 0 == in && inlen > 0 ) return;
+  if ( NULL == in && inlen > 0 ) return;
 
-  if ( 0 == out ) return;
+  if ( NULL == out ) return;
 
-  if( 0 == key && keylen > 0 ) return;
+  if( NULL == key && keylen > 0 ) return;
 
   if( !outlen || outlen > BLAKE2B_OUTBYTES ) return;
 
@@ -545,3 +548,112 @@ void blake2b(uint8_t *out,
 }
 
 /* END OF BLAKE2B CODE */
+
+
+
+/* STRUCTS */
+
+typedef struct element
+{
+    uint8_t digest[DIGEST_SIZE];
+    uint32_t a;
+    uint32_t b;
+} element_t;
+
+typedef struct bucket
+{
+    uint32_t tmp;
+    volatile uint32_t size;
+    element_t data[NUM_INDICES_PER_BUCKET*4];
+} bucket_t;
+
+typedef struct element_indice
+{
+    uint32_t a;
+    uint32_t b;
+} element_indice_t;
+
+
+/* UTIL */
+
+
+uint32_t mask_collision_bits_private(uint8_t* data, size_t start) {
+    size_t byte_index = start / 8;
+    size_t bit_index = start % 8;
+    uint32_t n = ((data[byte_index] << (bit_index)) & 0xff) << 12;
+    n |= ((data[byte_index+1]) << (bit_index+4));
+    n |= ((data[byte_index+2]) >> (4-bit_index));
+    return n;
+}
+
+// copy from local to global mem
+void memcpy_private2global(__global void *dest, void *src, size_t n) {
+   char *csrc = (char *)src;
+   __global char *cdest = (__global char *)dest;
+ 
+   for (int i=0; i<n; i++)
+       cdest[i] = csrc[i];
+}
+
+__kernel void initial_bucket_hashing(__global bucket_t* dst, __global const blake2b_state* digest)
+{
+    uint8_t new_digest[2*DIGEST_SIZE];
+    memset(new_digest, '\0', 2*DIGEST_SIZE);
+    size_t start = get_global_id(0) * ((NUM_VALUES / 2) / get_global_size(0));
+    size_t end = (get_global_id(0) + 1) * ((NUM_VALUES / 2) / get_global_size(0));
+    uint32_t z = get_global_id(0);
+
+    if(z == 123) {
+        printf("start: %u\n", start);
+        printf("end: %u\n", end);
+    }
+    if(z == 124) {
+        printf("start: %u\n", start);
+        printf("end: %u\n", end);
+    }
+    
+    for(uint32_t i = start; i < end; ++i){
+        blake2b_state current_digest;
+        current_digest = *digest;
+        blake2b_update(&current_digest, (uint8_t*)&i, sizeof(uint32_t));
+        blake2b_final(&current_digest, (uint8_t*)(new_digest), 50);
+
+        {
+            uint32_t new_index = mask_collision_bits_private(new_digest, 0) / NUM_INDICES_PER_BUCKET;
+            // fill the buckets with elements
+            __global bucket_t* bucket = dst + new_index;
+            __global element_t* new_el = bucket->data + atomic_add(&bucket->size, 1);
+            // set the index of the initial first half of the hash
+            new_el->a = i*2;
+            // copy the first half of new hash to global element digest
+            memcpy_private2global(new_el->digest, new_digest, DIGEST_SIZE);
+            if(i == 135){
+                printf("new index: %u", new_index);
+                printf("element a: %u", new_el->a);
+                //for(int d = 0; d < 50; d++){
+                //    printf("%u", new_digest[d]);
+                //}
+            }
+        }
+
+        {
+            // select the last 25 bytes of the generated hash for second index
+            uint32_t new_index = mask_collision_bits_private(new_digest + 25, 0) / NUM_INDICES_PER_BUCKET;
+            // fill the buckets with elements
+            __global bucket_t* bucket = dst + new_index;
+            __global element_t* new_el = bucket->data + atomic_add(&bucket->size, 1);
+            // set the index of the initial first half of the hash
+            new_el->a = i*2+1;
+            // copy the first half of new hash to global element digest
+            memcpy_private2global(new_el->digest, new_digest + 25, DIGEST_SIZE);
+            if(i == 135){
+                printf("new index: %u", new_index);
+                printf("element a: %u", new_el->a);
+                //for(int d = 0; d < 50; d++){
+                //    printf("%u", new_digest[d]);
+                //}
+            }
+        }
+
+    }
+}
