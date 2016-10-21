@@ -27,7 +27,7 @@ using namespace std;
 unsigned const cl_zogminer::c_defaultLocalWorkSize = 64;
 unsigned const cl_zogminer::c_defaultGlobalWorkSizeMultiplier = 4096; // * CL_DEFAULT_LOCAL_WORK_SIZE
 unsigned const cl_zogminer::c_defaultMSPerBatch = 0;
-bool cl_zogminer::s_allowCPU = false;
+bool cl_zogminer::s_allowCPU = true;
 unsigned cl_zogminer::s_extraRequiredGPUMem;
 unsigned cl_zogminer::s_msPerBatch = cl_zogminer::c_defaultMSPerBatch;
 unsigned cl_zogminer::s_workgroupSize = cl_zogminer::c_defaultLocalWorkSize;
@@ -364,13 +364,22 @@ bool cl_zogminer::init(
 
 		// TODO create buffer kernel inputs (private variables)
 	  	m_indices = cl::Buffer(m_context, CL_MEM_READ_WRITE, NUM_STEP_INDICES * sizeof(element_indice_t) * EQUIHASH_K, NULL, NULL);
-		// TODO fill buffers with 0's or contents
+		m_queue.enqueueFillBuffer(m_indices, &zero, 1, 0, (NUM_STEP_INDICES) * sizeof(element_indice_t) * EQUIHASH_K, 0);
 
 		m_src_bucket = cl::Buffer(m_context, CL_MEM_READ_WRITE, NUM_BUCKETS * sizeof(bucket_t), NULL, NULL);
+		m_queue.enqueueFillBuffer(m_src_bucket, &zero, 1, 0, (NUM_BUCKETS) * sizeof(bucket_t), 0);
+
 		m_dst_bucket = cl::Buffer(m_context, CL_MEM_READ_WRITE, NUM_BUCKETS * sizeof(bucket_t), NULL, NULL);
+		m_queue.enqueueFillBuffer(m_dst_bucket, &zero, 1, 0, (NUM_BUCKETS) * sizeof(bucket_t), 0); 
+
 		m_blake2b_digest = cl::Buffer(m_context, CL_MEM_READ_WRITE, sizeof(crypto_generichash_blake2b_state), NULL, NULL);
+		m_queue.enqueueFillBuffer(m_blake2b_digest, &zero, 1, 0, sizeof(crypto_generichash_blake2b_state), 0);		
+
 		m_dst_solutions = cl::Buffer(m_context, CL_MEM_READ_WRITE, 20*NUM_INDICES*sizeof(uint32_t), NULL, NULL);
+		m_queue.enqueueFillBuffer(m_dst_solutions, &zero, 1, 0, 20*NUM_INDICES*sizeof(uint32_t), 0);
+
 		m_n_solutions = cl::Buffer(m_context, CL_MEM_READ_WRITE, sizeof(uint32_t), NULL, NULL);
+		m_queue.enqueueFillBuffer(m_n_solutions, &zero, 1, 0, sizeof(uint32_t), 0);
 
 	}
 	catch (cl::Error const& err)
@@ -406,13 +415,13 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state)
 		// Just send it numbers for now
 	
 		//TODO find out why it is segfaulting
-		/*m_zogKernels[0].setArg(0, m_src_bucket);
+		m_zogKernels[0].setArg(0, m_src_bucket);
 		m_zogKernels[0].setArg(1, m_blake2b_digest);
 		// execute it!
 		// Here we assume an 1-Dimensional problem split into local worksizes
 		m_queue.enqueueNDRangeKernel(m_zogKernels[0], cl::NullRange, m_globalWorkSize, s_workgroupSize);
 
-		m_queue.enqueueBarrier();*/
+		m_queue.enqueueBarrier();
 
 		uint32_t i = 1;
     	for(i = 1; i < EQUIHASH_K; ++i) {
@@ -435,6 +444,9 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state)
 		}
 
 		uint32_t n_solutions = 0;
+		
+		//TODO Is this really necessary?
+		m_queue.enqueueFillBuffer(m_n_solutions, &zero, 1, 0, sizeof(uint32_t), 0);
 
 		m_zogKernels[2].setArg(0, m_src_bucket);
 		m_zogKernels[2].setArg(1, m_indices);	
@@ -457,6 +469,13 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state)
 		// read results - The results don't change... just template for now
 		dst_solutions = (uint32_t*)m_queue.enqueueMapBuffer(m_dst_solutions, true, CL_MAP_READ, 0, 10*NUM_INDICES*sizeof(uint32_t));
 		solutions = (uint32_t*)m_queue.enqueueMapBuffer(m_n_solutions, true, CL_MAP_READ, 0, sizeof(uint32_t));	
+
+		m_queue.enqueueFillBuffer(m_indices, &zero, 1, 0, (NUM_STEP_INDICES) * sizeof(element_indice_t) * EQUIHASH_K, 0);
+		m_queue.enqueueFillBuffer(m_src_bucket, &zero, 1, 0, (NUM_BUCKETS) * sizeof(bucket_t), 0);
+		m_queue.enqueueFillBuffer(m_dst_bucket, &zero, 1, 0, (NUM_BUCKETS) * sizeof(bucket_t), 0); 
+		m_queue.enqueueFillBuffer(m_blake2b_digest, &zero, 1, 0, sizeof(crypto_generichash_blake2b_state));		
+		m_queue.enqueueFillBuffer(m_dst_solutions, &zero, 1, 0, 20*NUM_INDICES*sizeof(uint32_t), 0);
+		m_queue.enqueueFillBuffer(m_n_solutions, &zero, 1, 0, sizeof(uint32_t), 0);
 
 		m_queue.finish();
 

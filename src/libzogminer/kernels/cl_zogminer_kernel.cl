@@ -607,8 +607,9 @@ void memcpy_private2global(__global void *dest, void *src, size_t n) {
    char *csrc = (char *)src;
    __global char *cdest = (__global char *)dest;
  
-   for (int i=0; i<n; i++)
-       cdest[i] = csrc[i];
+  	for (int i=0; i<n; i++) {
+       		cdest[i] = csrc[i];
+	}
 }
 
 __kernel void initial_bucket_hashing(__global bucket_t* dst, __global const blake2b_state* digest)

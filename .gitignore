@@ -1,3 +1,5 @@
+src/libzogminer/kernels/cl_zogminer_kernel.h
+
 *.tar.gz
 
 *.exe

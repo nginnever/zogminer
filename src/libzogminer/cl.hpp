@@ -300,6 +300,7 @@ public:
 #define __ENQUEUE_READ_BUFFER_ERR           __ERR_STR(clEnqueueReadBuffer)
 #define __ENQUEUE_READ_BUFFER_RECT_ERR      __ERR_STR(clEnqueueReadBufferRect)
 #define __ENQUEUE_WRITE_BUFFER_ERR          __ERR_STR(clEnqueueWriteBuffer)
+#define __ENQUEUE_FILL_BUFFER_ERR          	__ERR_STR(clEnqueueFillBuffer)
 #define __ENQUEUE_WRITE_BUFFER_RECT_ERR     __ERR_STR(clEnqueueWriteBufferRect)
 #define __ENQEUE_COPY_BUFFER_ERR            __ERR_STR(clEnqueueCopyBuffer)
 #define __ENQEUE_COPY_BUFFER_RECT_ERR       __ERR_STR(clEnqueueCopyBufferRect)
@@ -2651,6 +2652,24 @@ public:
                 (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
                 (cl_event*) event),
                 __ENQUEUE_WRITE_BUFFER_ERR);
+    }
+
+	cl_int enqueueFillBuffer(
+        const Buffer& buffer,
+        const void* ptr,
+		::size_t pattern_size,
+		::size_t offset,
+        ::size_t size,
+        const VECTOR_CLASS<Event>* events = NULL,
+        Event* event = NULL) const
+    {
+        return detail::errHandler(
+            ::clEnqueueFillBuffer(
+                object_, buffer(), ptr, pattern_size, offset, size,
+                (events != NULL) ? (cl_uint) events->size() : 0,
+                (events != NULL && events->size() > 0) ? (cl_event*) &events->front() : NULL,
+                (cl_event*) event),
+                __ENQUEUE_FILL_BUFFER_ERR);
     }
 
     cl_int enqueueCopyBuffer(
