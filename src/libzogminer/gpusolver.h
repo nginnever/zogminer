@@ -65,6 +65,7 @@ public:
 private:
 	cl_zogminer * miner;
 	bool GPU;
+	bool initOK;
 
 	//TODO Really wasteful initialize and compile kernels once, not for every iter
 	bool GPUSolve200_9(const eh_HashState& base_state,

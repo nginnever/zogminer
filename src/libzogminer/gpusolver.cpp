@@ -69,7 +69,7 @@ GPUSolver::GPUSolver() {
 	*/
 	std::vector<std::string> kernels {"initial_bucket_hashing", "bucket_collide_and_hash", "produce_solutions"};
 	if(GPU)
-		miner->init(0, 0, kernels);
+		initOK = miner->init(0, 0, kernels);
 
 }
 
@@ -103,7 +103,7 @@ bool GPUSolver::GPUSolve200_9(const eh_HashState& base_state,
 	@params eh_HashState& base_state - Sends to kernel in a buffer. Will update for specific kernels
 	*/
     
-	if(GPU) {
+	if(GPU && initOK) {
         auto t = std::chrono::high_resolution_clock::now();
 
     	miner->run(base_state);
