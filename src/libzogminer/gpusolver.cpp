@@ -41,8 +41,8 @@ GPUSolver::GPUSolver() {
 	//uint32_t global_work_size = z_N;
 
 	//TODO This looks like IND_PER_BUCKET, enough for GPU?
-	size_t global_work_size = 1 << 10;
-    size_t local_work_size = 256;
+	size_t global_work_size = 1 << 17;
+    size_t local_work_size = 32;
 
 	miner = new cl_zogminer();
 	miner->listDevices();
@@ -104,13 +104,16 @@ bool GPUSolver::GPUSolve200_9(const eh_HashState& base_state,
 	*/
     
 	if(GPU && initOK) {
+		uint32_t indices[20*512];
         auto t = std::chrono::high_resolution_clock::now();
 
-    	miner->run(base_state);
+		uint32_t n_sol;
+
+    	miner->run(base_state, indices, &n_sol);
 
 		auto d = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t);
 		auto milis = std::chrono::duration_cast<std::chrono::milliseconds>(d).count();
-		std::cout << "Kernel run took " << milis << " ms. (" << 1000.f/milis << " H/s)" << std::endl;
+		std::cout << "Kernel run took " << milis << " ms. (" << 1000.f*n_sol/milis << " H/s)" << std::endl;
 	}
 
     //TODO Check this, now it is a dummy value

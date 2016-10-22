@@ -30,31 +30,22 @@
 #define NUM_COLLISION_BITS (EQUIHASH_N / (EQUIHASH_K + 1))
 #define NUM_INDICES (1 << EQUIHASH_K)
 
-#define NUM_COMPRESSED_INDICE_BITS 16
-#define NUM_DECOMPRESSED_INDICE_BITS (NUM_COLLISION_BITS+1)
-
-#define NUM_INDICE_BYTES_PER_ELEMENT (((NUM_INDICES/2) * NUM_COMPRESSED_INDICE_BITS + 7) / 8)
 #define NUM_VALUES (1 << (NUM_COLLISION_BITS+1))
-#define NUM_INDICES_PER_BUCKET (1 << 10)
-#define NUM_STEP_INDICES (8*NUM_VALUES)
-#define NUM_BUCKETS (1 << NUM_COLLISION_BITS)/NUM_INDICES_PER_BUCKET
-#define DIGEST_SIZE 32
+#define NUM_BUCKETS (1 << NUM_COLLISION_BITS)
+#define DIGEST_SIZE 25
 
-typedef struct element_indice {
-    uint32_t a;
-    uint32_t b;
-} element_indice_t;
+typedef struct element element_t;
+typedef uint64_t digest_t[(DIGEST_SIZE + sizeof(uint64_t) - 1) / sizeof(uint64_t)];
 
-typedef struct element {
-    uint8_t digest[DIGEST_SIZE];
-    uint32_t a;
-    uint32_t b;
-} element_t;
+struct element {
+    uint32_t digest_index;
+    uint32_t parent_bucket_index;
+};
+
 
 typedef struct bucket {
-    uint32_t tmp;
-    uint32_t size;
-    element_t data[NUM_INDICES_PER_BUCKET*4];
+    unsigned size;
+    element_t data[18];
 } bucket_t;
 
 typedef uint32_t eh_index;
@@ -89,7 +80,7 @@ public:
 		std::vector<std::string> _kernels
 	);
 
-	void run(crypto_generichash_blake2b_state base_state);
+	void run(crypto_generichash_blake2b_state base_state, uint32_t * sols, uint32_t * n_sol);
 
 	void finish();
 
@@ -109,12 +100,36 @@ private:
 
 	static std::vector<cl::Device> getDevices(std::vector<cl::Platform> const& _platforms, unsigned _platformId);
 	static std::vector<cl::Platform> getPlatforms();
+	int compare_indices32(uint32_t* a, uint32_t* b, size_t n_current_indices) {
+		for(size_t i = 0; i < n_current_indices; ++i, ++a, ++b) {
+		    if(*a < *b) {
+		        return -1;
+		    } else if(*a > *b) {
+		        return 1;
+		    } else {
+		        return 0;
+		    }
+		}
+		return 0;
+	}
+	void normalize_indices(uint32_t* indices) {
+		for(size_t step_index = 0; step_index < EQUIHASH_K; ++step_index) {
+		    for(size_t i = 0; i < NUM_INDICES; i += (1 << (step_index+1))) {
+		        if(compare_indices32(indices+i, indices+i+(1 << step_index), (1 << step_index)) > 0) {
+		            uint32_t tmp_indices[(1 << step_index)];
+		            memcpy(tmp_indices, indices+i, (1 << step_index)*sizeof(uint32_t));
+		            memcpy(indices+i, indices+i+(1 << step_index), (1 << step_index)*sizeof(uint32_t));
+		            memcpy(indices+i+(1 << step_index), tmp_indices, (1 << step_index)*sizeof(uint32_t));
+		        }
+		    }
+		}
+	}
 	cl::Context m_context;
 	cl::CommandQueue m_queue;
 	std::vector<cl::Kernel> m_zogKernels;
-	cl::Buffer m_indices;
-	cl::Buffer m_src_bucket;
-	cl::Buffer m_dst_bucket;
+	cl::Buffer m_digests[2];
+	cl::Buffer m_buckets;
+	cl::Buffer m_new_digest_index;
 	cl::Buffer m_blake2b_digest;
 	cl::Buffer m_dst_solutions;
 	cl::Buffer m_n_solutions;
