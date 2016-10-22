@@ -429,7 +429,7 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 		m_queue.enqueueBarrier();
 
 		uint32_t i = 1;
-    	for(i = 1; i < EQUIHASH_K; ++i) {
+    		for(i = 1; i < EQUIHASH_K; ++i) {
 			
 			m_queue.enqueueFillBuffer(m_new_digest_index, &zero, 1, 0, sizeof(uint32_t), 0); 
 
@@ -450,6 +450,7 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 		uint32_t n_solutions = 0;
 		
 		//TODO Is this really necessary?
+		//This is not necessary, working on removing it
 		m_queue.enqueueFillBuffer(m_n_solutions, &zero, 1, 0, sizeof(uint32_t), 0);
 
 		m_zogKernels[2].setArg(0, m_dst_solutions);
