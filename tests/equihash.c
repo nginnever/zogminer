@@ -319,7 +319,28 @@ void init_program(gpu_config_t* config, const char* file_path, unsigned flags) {
     config->program = clCreateProgramWithSource(config->context, 1, &config->program_source_code, &config->program_source_code_size, &ret);
     check_error(ret, __LINE__);
 
-    check_error(clBuildProgram(config->program, 1, &config->device_ids, NULL, NULL, NULL), __LINE__);
+    cl_build_status status;
+    cl_int err;
+    cl_uint platformCount;
+    cl_uint deviceCount;
+    cl_int r;
+    size_t logSize;
+    char *programLog;
+
+    if (clBuildProgram(config->program, 0, NULL, NULL, NULL, NULL) != CL_SUCCESS){
+        // check build log
+        clGetProgramBuildInfo(config->program, config->device_ids,
+                              CL_PROGRAM_BUILD_LOG, 0, NULL, &logSize);
+        programLog = (char*) calloc (logSize+1, sizeof(char));
+        clGetProgramBuildInfo(config->program, config->device_ids,
+                              CL_PROGRAM_BUILD_LOG, logSize+1, programLog, &r);
+        printf("Build failed; error=%d, status=%d, programLog:%s, r: %d\n",
+               err, status, programLog, r);
+        free(programLog);
+
+    }
+
+    //check_error(clBuildProgram(config->program, 1, &config->device_ids, NULL, NULL, NULL), __LINE__);
     
     config->initial_bucket_hashing_kernel = clCreateKernel(config->program, "initial_bucket_hashing", &ret);
     check_error(ret, __LINE__);
