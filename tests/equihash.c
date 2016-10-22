@@ -402,8 +402,8 @@ void init_program(gpu_config_t* config, const char* file_path, unsigned flags) {
 
     printf("Total gpu buffer: %u\n", NUM_BUCKETS * sizeof(bucket_t) * EQUIHASH_K + 2* (NUM_VALUES + NUM_VALUES / 2) * 32 + sizeof(crypto_generichash_blake2b_state) + 20*NUM_INDICES*sizeof(uint32_t) + sizeof(uint32_t));
     printf("-----------------------------------------------------\n");
-    printf("Size of indices buffer: %u\n", (NUM_STEP_INDICES) * sizeof(element_indice_t) * EQUIHASH_K);
-    printf("Size of bucket buffer (x2 src and dst): %u\n", (NUM_BUCKETS) * sizeof(bucket_t));
+    printf("Size of indices buffer: %u\n", NUM_STEP_INDICES);
+    printf("Size of bucket buffer (x2 src and dst): %u\n", sizeof(bucket_t));
     printf("Size of initial hash state buffer: %u\n", sizeof(crypto_generichash_blake2b_state));
     printf("Size of output solution buffer: %u\n", 20*NUM_INDICES*sizeof(uint32_t));
     printf("Size of number of solutions integer buffer: %u\n", sizeof(uint32_t));
@@ -474,6 +474,10 @@ size_t equihash(uint32_t* dst_solutions, crypto_generichash_blake2b_state* diges
         printf("step0: %0.3f ms\n", (time_end - time_start) / 1000000.0);
         total_time += (time_end-time_start);
 
+        bucket_t* test = calloc(NUM_BUCKETS, sizeof(bucket_t));
+        check_error(clEnqueueReadBuffer(config.command_queue, config.dst_bucket, CL_TRUE, 0, (NUM_BUCKETS) * sizeof(bucket_t), test, 0, NULL, NULL), __LINE__);
+        bucket_t* t = test + 3;
+        printf("Round %u Host reporting dst bucket 0 size: %u\n", i, t->data);
         cl_mem tmp_bucket = config.dst_bucket;
         config.dst_bucket = config.src_bucket;
         config.src_bucket = tmp_bucket;

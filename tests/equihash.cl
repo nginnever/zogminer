@@ -644,7 +644,6 @@ __kernel void initial_bucket_hashing(__global bucket_t* dst, __global const blak
 
     if(z == 123) {
         printf("work item id 123 start: %u\n", start);
-        //printf("end: %u\n", end);
     }
 
     for(uint32_t i = start; i < end; ++i){
@@ -657,129 +656,135 @@ __kernel void initial_bucket_hashing(__global bucket_t* dst, __global const blak
             // generate an index based on the rounds bits and distribute the hashes to 
             // buckets according to that distribution
             uint32_t new_index = mask_collision_bits_private(new_digest, 0) / NUM_INDICES_PER_BUCKET;
+
             // fill the buckets with elements
             __global bucket_t* bucket = dst + new_index;
             __global element_t* new_el = bucket->data + atomic_add(&bucket->size, 1);
+
             // set the index of the initial first half of the hash
             new_el->a = i*2;
+
             // copy the first half of new hash to global element digest
             memcpy_private2global(new_el->digest, new_digest, DIGEST_SIZE);
-            if(i == 10){
-                printf("new index: %u", new_index);
-                printf("new digest: %u", new_digest[0]);
-                printf("address start address of global bucket dst: %u", dst);
-                printf("address start address of worker id 134 bucket dst: %u", bucket);
-                //for(int d = 0; d < 50; d++){
-                //    printf("%u", new_digest[d]);
-                //}
-            }
         }
 
         {
             // select the last 25 bytes of the generated hash for second index
             uint32_t new_index = mask_collision_bits_private(new_digest + 25, 0) / NUM_INDICES_PER_BUCKET;
+
             // fill the buckets with elements
             __global bucket_t* bucket = dst + new_index;
             // adds one element to the global bucket atomically
             __global element_t* new_el = bucket->data + atomic_add(&bucket->size, 1);
+
             // set the index of the initial first half of the hash
             new_el->a = i*2+1;
+
             // copy the first half of new hash to global element digest
             memcpy_private2global(new_el->digest, new_digest + 25, DIGEST_SIZE);
-            if(i == 135){
-                //printf("new index: %u", new_index);
-                //printf("element a: %u", new_el->a);
-                //for(int d = 0; d < 50; d++){
-                //    printf("%u", new_digest[d]);
-                //}
-            }
         }
 
     }
 }
 
 __kernel void bucket_collide_and_hash(__global bucket_t* dst, __global bucket_t* src, __global element_indice_t* indices, uint32_t step_index) {
-    uint32_t z = get_global_id(0);
     // select the starting bit based on the current step ROUND
     // this will increment by by 20 bits in n=200... 0,20,40,60...140
     // step 9 is bits 160-180
     size_t start_bit = ((step_index-1) * NUM_COLLISION_BITS);
     size_t last_bit = ((step_index) * NUM_COLLISION_BITS);
+
     // the start is the global id since the number of buckets
     // is equal to the number of global work items 1024
     size_t start = get_global_id(0) * (NUM_BUCKETS / get_global_size(0));
+
     // end is one index up in the global work items
     size_t end = (get_global_id(0)+1) * (NUM_BUCKETS / get_global_size(0));
+
     // the indice index is offset from the work item id by 
     // the number of indices needed to be in each work item
     size_t indice_index = get_global_id(0) * (NUM_STEP_INDICES / get_global_size(0));
+
     // get the last steps indices from global mem
     __global element_indice_t* old_indices = indices + NUM_STEP_INDICES*(step_index-1);
 
+    // iterate over each bucket filled with elements from kernel1
     for(uint32_t i = start; i < end; ++i){
         // DANGER
         __global bucket_t* bucket = src + get_global_id(0);
         uint8_t sub_bucket_sizes[NUM_INDICES_PER_BUCKET];
         uint32_t sub_buckets[NUM_INDICES_PER_BUCKET][16];
         memset(sub_bucket_sizes, '\0', NUM_INDICES_PER_BUCKET * sizeof(uint8_t));
-            if(i == 123 && get_global_id(0 == 123)){
-                printf("bucket size: %u", bucket->size);
-            }
+
+        // iterate over all of elements in the bucket placed from initial kernel
+        // place them into sub_buckets
         for(uint32_t j = 0; j < bucket->size; ++j){
+            // create new indices for the elements and place them into sub_buckets
             uint32_t sub_index = mask_collision_bits_global((bucket->data+j)->digest, start_bit) % NUM_INDICES_PER_BUCKET;
+
+            // store the new sub_indices in a sub_buckets array
             sub_buckets[sub_index][sub_bucket_sizes[sub_index]++] = j;
-            if(i == 123 && get_global_id(0 == 123)){
-                //printf("%u", j);
-            }
         }
 
+        // reset the bucket size after 
+        if(i == 123 && get_global_id(0 == 123)){
+            printf("bucket size: %u", bucket->size);
+        }
+        bucket->size = 0;
+
+        // now that hashes are sorted into sub_buckets iterate each sub_bucket
         for(uint32_t o = 0; o < NUM_INDICES_PER_BUCKET; ++o){
             uint32_t* sub_bucket_indices = sub_buckets[o];
             uint32_t sub_bucket_size = sub_bucket_sizes[o];
 
+            // for each sub_bucket, iterate over the elements in that sub_bucket
             for(uint32_t j = 0; j < sub_bucket_size && sub_bucket_size > 1; ++j){
+                // grab element from global bucket data array at sub_bucket_index
                 __global element_t* base = bucket->data + sub_bucket_indices[j];
+
+                // basemap each sub_bucket element hash to a new index
+                // in the sub_bucket array
                 uint32_t base_bits = mask_collision_bits_global(base->digest, last_bit);
+
+                // set the last steps indices with the new index derived from the basemap
+                // at the location where the worker had the previous index stored
                 old_indices[indice_index].a = base->a;
                 old_indices[indice_index].b = base->b;
 
+                // select the next element in the sub_bucket
+                // iterate the remainder of elements in the sub_bucket
                 for(uint32_t k = j + 1; k < sub_bucket_size; ++k){
                     __global element_t* el = bucket->data + sub_bucket_indices[k];
+
+                    // or the previous base index with each subsequent index in the sub_bucket
+                    // create a new index (pair)
                     uint32_t new_index = base_bits ^ mask_collision_bits_global(el->digest, last_bit);
+
+                    // no collision so break?
                     if(new_index == 0) continue;
 
-                    // equal to new_index = new_index / NUM_INDICES_PER_BUCKET
+                    // get the new indices divided into sub_buckets
                     new_index /= NUM_INDICES_PER_BUCKET;
 
+                    // grab the global bucket array for outputing the new bucket arrangements
                     __global bucket_t* dst_bucket = dst + new_index;
+
+                    // grab the global element for the output buffer for each element that
+                    // matches the base
                     __global element_t* new_el = dst_bucket->data + atomic_add(&dst_bucket->size, 1);
                     xor_elements(new_el->digest, base->digest, el->digest);
                     new_el->a = indice_index;
                     new_el->b = indice_index + (k-j);
-
-                    if(step_index == 2) {
-                        //printf("step: %u", step_index);
-                        //printf("%u", new_el->digest[0]);
-                    }
-
                 }
                 indice_index++;
             }
         }
 
-        bucket->size = 0;
+
     }
     if(get_global_id(0) == get_global_size(0) - 1) {
         printf("indices: %u\n", indice_index);
     }
-
-    if(z == 123) {
-        //printf("start_bit: %u\n", start_bit);
-        //printf("last_bit: %u\n", last_bit);
-        //printf("indice index: %u\n", NUM_STEP_INDICES);
-        //printf("last a: %u\n", old_indices->a);
-    }
-    
 }
 
 __kernel void produce_solutions(__global bucket_t* src, __global element_indice_t* src_indices, __global const blake2b_state* digest) {
@@ -831,16 +836,8 @@ __kernel void produce_solutions(__global bucket_t* src, __global element_indice_
                                 }
                             }
                         }
-                        //printf("%u", get_global_id(0));
-                        if(has_dupe) continue;
-                        //printf("%u", get_global_id(0));
-                        if(get_global_id(0) == 123){
-                            for(size_t k = 0; k < NUM_INDICES; ++k) {
-                                //printf("%u", uncompressed_indices[k]);
-                            }
 
-                            printf("\n\n");
-                        }
+                        if(has_dupe) continue;
 
                         //atomic_add(&n_solutions, 1);
                     }
