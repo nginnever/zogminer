@@ -40,6 +40,10 @@
 // The maximum size of the .cl file we read in and compile
 #define MAX_SOURCE_SIZE 	(0x200000)
 
+#define EK 9
+#define EN 200
+#define DIGITBITS	(EN/(EK+1))
+
 class GPUSolverCancelledException : public std::exception
 {
     virtual const char* what() const throw() {
@@ -66,8 +70,10 @@ private:
 	cl_zogminer * miner;
 	bool GPU;
 	bool initOK;
+	static const uint32_t PROOFSIZE = 1 << EK;
+	//TODO 20?
+	uint32_t indices[20*PROOFSIZE];
 
-	//TODO Really wasteful initialize and compile kernels once, not for every iter
 	bool GPUSolve200_9(const eh_HashState& base_state,
 		         	const std::function<bool(std::vector<unsigned char>)> validBlock,
 				const std::function<bool(GPUSolverCancelCheck)> cancelled);

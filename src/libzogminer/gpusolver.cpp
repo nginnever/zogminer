@@ -104,7 +104,6 @@ bool GPUSolver::GPUSolve200_9(const eh_HashState& base_state,
 	*/
     
 	if(GPU && initOK) {
-		uint32_t indices[20*512];
         auto t = std::chrono::high_resolution_clock::now();
 
 		uint32_t n_sol;
@@ -114,9 +113,27 @@ bool GPUSolver::GPUSolve200_9(const eh_HashState& base_state,
 		auto d = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t);
 		auto milis = std::chrono::duration_cast<std::chrono::milliseconds>(d).count();
 		std::cout << "Kernel run took " << milis << " ms. (" << 1000.f*n_sol/milis << " H/s)" << std::endl;
+
+		size_t checkedSols = 0;
+        for (size_t s = 0; s < n_sol; ++s) {
+        	++checkedSols;
+            std::cout << "Checking solution " << checkedSols << std::endl;
+            std::vector<eh_index> index_vector(PROOFSIZE);
+            for (size_t i = 0; i < PROOFSIZE; i++) {
+            	index_vector[i] = indices[s * PROOFSIZE + i];
+            }
+            std::vector<unsigned char> sol_char = GetMinimalFromIndices(index_vector, DIGITBITS);
+
+            if (validBlock(sol_char)) {
+            	// If we find a POW solution, do not try other solutions
+              	// because they become invalid as we created a new block in blockchain.
+				  std::cout << "Valid block found!" << std::endl;
+              	  return true;
+            }
+        }
+
 	}
 
-    //TODO Check this, now it is a dummy value
     return false;
 
 }
