@@ -34,6 +34,7 @@
 #include "version.h"
 
 #include "libzogminer/gpusolver.h"
+#include "libzogminer/cl_zogminer.h"
 
 #include "sodium.h"
 
@@ -81,6 +82,7 @@ std::string HelpMessageMiner()
     strUsage += HelpMessageOpt("-testnet", _("Use the test network"));
 	strUsage += HelpMessageOpt("-G", _("GPU mine"));
 	strUsage += HelpMessageOpt("-S=<deviceid>", _("Select GPU device (default: 0)"));
+	strUsage += HelpMessageOpt("-listdevices", _("List available OpenCL devices"));
 
     return strUsage;
 }
@@ -222,6 +224,16 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+	bool GPU = GetBoolArg("-G", false);
+	int64_t selGPU = GetArg("-S", 0);
+	//std::cout << GPU << " " << selGPU << std::endl;
+	if(GetBoolArg("-listdevices", false)) {
+		//Generic Things
+		std::cout << "Number of Platforms:" << cl_zogminer::getNumPlatforms << "\n";
+		cl_zogminer::listDevices();
+		return 0;
+	}
+
     // Zcash debugging
     fDebug = !mapMultiArgs["-debug"].empty();
     fPrintToConsole = GetBoolArg("-printtoconsole", false);
@@ -239,12 +251,11 @@ int main(int argc, char* argv[])
     }
 
     LogPrintf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
-    LogPrintf("Zcash Miner version %s (%s)\n", FormatFullVersion(), CLIENT_DATE);
+    LogPrintf("Zcash Miner version %s (%s)\n", FormatFullVersion(), CLIENT_DATE);		
 
     // Start the mining operation
-	bool GPU = GetBoolArg("-G", false);
-	int64_t selGPU = GetArg("-S", 0);
-	//std::cout << GPU << " " << selGPU << std::endl;
+	
+
     std::string stratum = GetArg("-stratum", "");
     if (!stratum.empty() || GetBoolArg("-stratum", false)) {
         if (stratum.compare(0, 14, "stratum+tcp://") != 0) {

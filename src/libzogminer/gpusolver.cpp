@@ -25,7 +25,7 @@
 
 #include "gpusolver.h"
 
-#define DEBUG
+//#define DEBUG
 
 GPUSolver::GPUSolver() {
 
@@ -47,10 +47,6 @@ GPUSolver::GPUSolver() {
     size_t local_work_size = 32;
 
 	miner = new cl_zogminer();
-	miner->listDevices();
-
-	//Generic Things
-	std::cout << "Number of Platforms:" << miner->getNumPlatforms << "\n";
 
 	/* Checks each device for memory requirements and sets local/global sizes
 	TODO: Implement device logic for equihash kernel
@@ -95,10 +91,6 @@ GPUSolver::GPUSolver(int64_t selGPU) {
     size_t local_work_size = 32;
 
 	miner = new cl_zogminer();
-	miner->listDevices();
-
-	//Generic Things
-	std::cout << "Number of Platforms:" << miner->getNumPlatforms << "\n";
 
 	/* Checks each device for memory requirements and sets local/global sizes
 	TODO: Implement device logic for equihash kernel

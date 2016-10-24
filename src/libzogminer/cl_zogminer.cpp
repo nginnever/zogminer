@@ -23,6 +23,8 @@
 #undef min
 #undef max
 
+//#define DEBUG
+
 using namespace std;
 
 unsigned const cl_zogminer::c_defaultLocalWorkSize = 32;
@@ -332,10 +334,13 @@ bool cl_zogminer::init(
 		// into a byte array by bin2h.cmake. There is no need to load the file by hand in runtime
 
 		// Uncomment for loading kernel from compiled cl file.
-		//string code(CL_MINER_KERNEL, CL_MINER_KERNEL + CL_MINER_KERNEL_SIZE);
+#ifdef DEBUG
 		ifstream kernel_file("./libzogminer/kernels/cl_zogminer_kernel.cl");
 		string code((istreambuf_iterator<char>(kernel_file)), istreambuf_iterator<char>());
 		kernel_file.close();
+#else
+		string code(CL_MINER_KERNEL, CL_MINER_KERNEL + CL_MINER_KERNEL_SIZE);
+#endif
 		// create miner OpenCL program
 		cl::Program::Sources sources;
 		sources.push_back({ code.c_str(), code.size() });
