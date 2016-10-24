@@ -12,7 +12,6 @@ typedef ulong uint64_t;
 #ifndef BLAKE2_LOCAL_INLINE
 #define BLAKE2_LOCAL_INLINE(type) static inline type
 #endif
-
 enum blake2b_constant
 {
   BLAKE2B_BLOCKBYTES = 128,
@@ -71,7 +70,7 @@ int memcmp(void* s1, void* s2, size_t n) {
 void *memset(void *dst, int c, size_t n) {
     if (n) {
         char *d = dst;
- 
+
         do {
             *d++ = c;
         } while (--n);
@@ -83,7 +82,7 @@ void *memset(void *dst, int c, size_t n) {
 void memcpy(void *dest, void *src, size_t n) {
    char *csrc = (char *)src;
    char *cdest = (char *)dest;
- 
+
    for (int i=0; i<n; i++)
        cdest[i] = csrc[i];
 }
@@ -481,11 +480,11 @@ int blake2b_final( blake2b_state *S, uint8_t *out, uint8_t outlen )
 }
 
 /* inlen, at least, should be uint64_t. Others can be size_t. */
-void blake2b(uint8_t *out, 
-                      const void *in, 
-                      const void *key, 
-                      const uint8_t outlen, 
-                      const uint64_t inlen, 
+void blake2b(uint8_t *out,
+                      const void *in,
+                      const void *key,
+                      const uint8_t outlen,
+                      const uint64_t inlen,
                       uint8_t keylen)
 {
   blake2b_state S[1];
@@ -518,8 +517,9 @@ void blake2b(uint8_t *out,
 
 
 // TODO REMOVE THIS LINE FOR GPU
+#ifdef cl_intel_printf
 #pragma OPENCL EXTENSION cl_intel_printf : enable
-
+#endif
 
 #define EQUIHASH_N 200
 #define EQUIHASH_K 9
@@ -584,7 +584,7 @@ uint32_t mask_collision_bits_step0(uint8_t* data, size_t bit_index) {
 void memcpy_step0(__global void *dest, void *src, size_t n) {
    char *csrc = (char *)src;
    __global char *cdest = (__global char *)dest;
- 
+
    for (int i=0; i<n; i++)
        cdest[i] = csrc[i];
 }
@@ -610,14 +610,14 @@ __kernel void initial_bucket_hashing(__global bucket_t* dst_buckets, __global di
         blake2b_state current_digest = *digest;
         blake2b_update(&current_digest, (uint8_t*)&i, sizeof(uint32_t));
         blake2b_final(&current_digest, (uint8_t*)(new_digest), 2*DIGEST_SIZE);
-        
+
         for(uint32_t j = 0; j < 2; ++j) {
             uint32_t new_index = mask_collision_bits_step0(new_digest + (j*EQUIHASH_N/8), 0);
             __global element_t* new_el = dst_buckets[new_index].data + atomic_add(&dst_buckets[new_index].size, 1);
             new_el->digest_index = atomic_add(new_digest_index, 1);
 
             set_element_parent_bucket_data(new_el, i*2 + j, 0, 0);
-            memcpy_step0(dst_digests + new_el->digest_index, new_digest + (j*EQUIHASH_N/8), DIGEST_SIZE);
+            memcpy_step0((__global void*)(dst_digests + new_el->digest_index), new_digest + (j*EQUIHASH_N/8), DIGEST_SIZE);
         }
     }
 }

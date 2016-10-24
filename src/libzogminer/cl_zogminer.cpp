@@ -393,7 +393,7 @@ bool cl_zogminer::init(
 	}
 	catch (cl::Error const& err)
 	{
-		CL_LOG(err.what() << "(" << err.err() << ")");
+		CL_LOG("CL ERROR:" << get_error_string(err.err()));
 		return false;
 	}
 	return true;
@@ -560,6 +560,7 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 	}
 	catch (cl::Error const& err)
 	{
-		CL_LOG(err.what() << "(" << err.err() << ")");
+		CL_LOG("CL ERROR:" << get_error_string(err.err()));
+		//CL_LOG(err.what() << "(" << err.err() << ")");
 	}
 }
