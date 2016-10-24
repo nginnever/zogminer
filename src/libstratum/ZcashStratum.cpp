@@ -16,7 +16,7 @@
 #include <atomic>
 
 
-void static ZcashMinerThread(ZcashMiner* miner, int size, int pos)
+void static ZcashMinerThread(ZcashMiner* miner, int size, int pos, bool GPU, int64_t selGPU)
 {
     LogPrintf("ZcashMinerThread started\n");
     RenameThread("zcash-miner");
@@ -33,7 +33,9 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos)
     std::atomic_bool workReady {false};
     std::atomic_bool cancelSolver {false};
 
-    GPUSolver solver;
+    GPUSolver * solver;
+	if(GPU)
+    	solver = new GPUSolver(selGPU);
 
     miner->NewJob.connect(NewJob_t::slot_type(
         [&m_zmt, &header, &space, &offset, &inc, &target, &workReady, &cancelSolver]
@@ -129,16 +131,28 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos)
                     // We're a pooled miner, so try all solutions
                     return false;
                 };
-                std::function<bool(GPUSolverCancelCheck)> cancelled =
+                std::function<bool(GPUSolverCancelCheck)> cancelledGPU =
                         [&cancelSolver](GPUSolverCancelCheck pos) {
+                    boost::this_thread::interruption_point();
+                    return cancelSolver.load();
+                };
+				std::function<bool(EhSolverCancelCheck)> cancelled =
+                        [&cancelSolver](EhSolverCancelCheck pos) {
                     boost::this_thread::interruption_point();
                     return cancelSolver.load();
                 };
                 try {
                     // If we find a valid block, we get more work
-                    if (solver.run(n, k, curr_state, validBlock, cancelled)) {
-                        break;
-                    }
+					if(!GPU) {
+                		if (EhOptimisedSolve(n, k, curr_state, validBlock, cancelled)) {
+		                    break;
+		                }
+					} else {
+						if (solver->run(n, k, curr_state, validBlock, cancelledGPU)) {
+		                    break;
+		                }
+					}
+                    
                 } catch (GPUSolverCancelledException&) {
                     LogPrint("pow", "Equihash solver cancelled\n");
                     cancelSolver.store(false);
@@ -161,17 +175,26 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos)
                 nonce += inc;
             }
         }
+
     }
     catch (const boost::thread_interrupted&)
     {
         LogPrintf("ZcashMinerThread terminated\n");
+		if(GPU)
+			delete solver;
         throw;
     }
     catch (const std::runtime_error &e)
     {
         LogPrintf("ZcashMinerThread runtime error: %s\n", e.what());
+		if(GPU)
+			delete solver;
         return;
     }
+
+	if(GPU)
+		delete solver;
+
 }
 
 ZcashJob* ZcashJob::clone() const
@@ -238,12 +261,13 @@ std::string ZcashJob::getSubmission(const EquihashSolution* solution)
     return stream.str();
 }
 
-ZcashMiner::ZcashMiner(int threads)
-    : nThreads{threads}, minerThreads{nullptr}
+ZcashMiner::ZcashMiner(int threads, bool _GPU, int64_t _selGPU)
+    : nThreads{threads}, minerThreads{nullptr}, GPU{_GPU}, selGPU{_selGPU}
 {
     if (nThreads < 0) {
         nThreads = boost::thread::hardware_concurrency();
     }
+
 }
 
 std::string ZcashMiner::userAgent()
@@ -263,7 +287,7 @@ void ZcashMiner::start()
 
     minerThreads = new boost::thread_group();
     for (int i = 0; i < nThreads; i++) {
-        minerThreads->create_thread(boost::bind(&ZcashMinerThread, this, nThreads, i));
+        minerThreads->create_thread(boost::bind(&ZcashMinerThread, this, nThreads, i, GPU, selGPU));
     }
 }
 

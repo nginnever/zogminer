@@ -276,7 +276,7 @@ int main(int argc, char* argv[])
             return false;
         }
 
-        ZcashMiner miner(GetArg("-genproclimit", 1));
+        ZcashMiner miner(GetArg("-genproclimit", 1), GPU, selGPU);
         ZcashStratumClient sc {
             &miner, host, port,
             GetArg("-user", "x"),
