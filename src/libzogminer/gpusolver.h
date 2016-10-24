@@ -73,6 +73,10 @@ private:
 	static const uint32_t PROOFSIZE = 1 << EK;
 	//TODO 20?
 	uint32_t indices[20*PROOFSIZE];
+	//Avg
+	uint32_t counter = 0;
+	float sum = 0.f;
+	float avg = 0.f;
 
 	bool GPUSolve200_9(const eh_HashState& base_state,
 		         	const std::function<bool(std::vector<unsigned char>)> validBlock,

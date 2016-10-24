@@ -25,6 +25,8 @@
 
 #include "gpusolver.h"
 
+#define DEBUG
+
 GPUSolver::GPUSolver() {
 
 	/* Notes
@@ -112,7 +114,15 @@ bool GPUSolver::GPUSolve200_9(const eh_HashState& base_state,
 
 		auto d = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t);
 		auto milis = std::chrono::duration_cast<std::chrono::milliseconds>(d).count();
-		std::cout << "Kernel run took " << milis << " ms. (" << 1000.f*n_sol/milis << " H/s)" << std::endl;
+		if(!counter) {
+			sum = 1000.f*n_sol/milis;
+		} else { 
+			sum += 1000.f*n_sol/milis;
+		}
+		
+		avg = sum/++counter;				
+		
+		std::cout << "Kernel run took " << milis << " ms. (" << avg << " H/s)" << std::endl;
 
 		size_t checkedSols = 0;
         for (size_t s = 0; s < n_sol; ++s) {
@@ -123,17 +133,16 @@ bool GPUSolver::GPUSolve200_9(const eh_HashState& base_state,
             	index_vector[i] = indices[s * PROOFSIZE + i];
             }
             std::vector<unsigned char> sol_char = GetMinimalFromIndices(index_vector, DIGITBITS);
-            
+#ifdef DEBUG
             bool isValid;
             EhIsValidSolution(200, 9, base_state, sol_char, isValid);
             std::cout << "is valid: " << isValid << '\n';
-            if (isValid) {
-            	// If we find a POW solution, do not try other solutions
-              	// because they become invalid as we created a new block in blockchain.
-				  std::cout << "Valid solution found!" << std::endl;
-              	  return true;
+            if (!isValid) {
+				  //If we find invalid solution bail, it cannot be a valid POW
+				  std::cout << "Invalid solution found!" << std::endl;
+              	  return false;
             }
-
+#endif
             if (validBlock(sol_char)) {
             	// If we find a POW solution, do not try other solutions
               	// because they become invalid as we created a new block in blockchain.
