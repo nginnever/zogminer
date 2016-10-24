@@ -5,6 +5,7 @@
 #include <cstdlib>
 //#include <chrono>
 #include <fstream>
+#include <streambuf>
 #include <iostream>
 #include <queue>
 #include <vector>
@@ -265,7 +266,7 @@ void cl_zogminer::listDevices()
 
 void cl_zogminer::finish()
 {
-	
+
 	// Unmap the mapped object
 	m_queue.enqueueUnmapMemObject(m_dst_solutions, dst_solutions);
 	m_queue.enqueueUnmapMemObject(m_n_solutions, solutions);
@@ -329,11 +330,12 @@ bool cl_zogminer::init(
 		// patch source code
 		// note: CL_MINER_KERNEL is simply cl_zogminer_kernel.cl compiled
 		// into a byte array by bin2h.cmake. There is no need to load the file by hand in runtime
-		string code(CL_MINER_KERNEL, CL_MINER_KERNEL + CL_MINER_KERNEL_SIZE);
-		// add required definitions here
-		//addDefinition(code, "GROUP_SIZE", s_workgroupSize);
-		//addDefinition(code, "ACCESSES", ACCESSES);
 
+		// Uncomment for loading kernel from compiled cl file.
+		//string code(CL_MINER_KERNEL, CL_MINER_KERNEL + CL_MINER_KERNEL_SIZE);
+		ifstream kernel_file("./libzogminer/kernels/cl_zogminer_kernel.cl");
+		string code((istreambuf_iterator<char>(kernel_file)), istreambuf_iterator<char>());
+		kernel_file.close();
 		// create miner OpenCL program
 		cl::Program::Sources sources;
 		sources.push_back({ code.c_str(), code.size() });
@@ -353,7 +355,7 @@ bool cl_zogminer::init(
 
 		try
 		{
-			for (auto & _kernel : _kernels) 
+			for (auto & _kernel : _kernels)
 				m_zogKernels.push_back(cl::Kernel(program, _kernel.c_str()));
 		}
 		catch (cl::Error const& err)
@@ -372,10 +374,10 @@ bool cl_zogminer::init(
 		m_queue.enqueueFillBuffer(m_buckets, &zero, 1, 0, NUM_BUCKETS * sizeof(bucket_t) * EQUIHASH_K, 0);
 
 		m_new_digest_index = cl::Buffer(m_context, CL_MEM_READ_WRITE, sizeof(uint32_t), NULL, NULL);
-		m_queue.enqueueFillBuffer(m_new_digest_index, &zero, 1, 0, sizeof(uint32_t), 0); 
+		m_queue.enqueueFillBuffer(m_new_digest_index, &zero, 1, 0, sizeof(uint32_t), 0);
 
 		m_blake2b_digest = cl::Buffer(m_context, CL_MEM_READ_WRITE, sizeof(crypto_generichash_blake2b_state), NULL, NULL);
-		m_queue.enqueueFillBuffer(m_blake2b_digest, &zero, 1, 0, sizeof(crypto_generichash_blake2b_state), 0);		
+		m_queue.enqueueFillBuffer(m_blake2b_digest, &zero, 1, 0, sizeof(crypto_generichash_blake2b_state), 0);
 
 		m_dst_solutions = cl::Buffer(m_context, CL_MEM_READ_WRITE, 20*NUM_INDICES*sizeof(uint32_t), NULL, NULL);
 		m_queue.enqueueFillBuffer(m_dst_solutions, &zero, 1, 0, 20*NUM_INDICES*sizeof(uint32_t), 0);
@@ -415,7 +417,7 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 
 		CL_LOG("Running Solver...");
 		// Just send it numbers for now
-	
+
 		//TODO find out why it is segfaulting
 		m_zogKernels[0].setArg(0, m_buckets);
 		m_zogKernels[0].setArg(1, m_digests[0]);
@@ -430,16 +432,16 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 
 		uint32_t i = 1;
     		for(i = 1; i < EQUIHASH_K; ++i) {
-			
-			m_queue.enqueueFillBuffer(m_new_digest_index, &zero, 1, 0, sizeof(uint32_t), 0); 
 
-			std::cout << "Step: " << i << "..." << std::endl;	
+			m_queue.enqueueFillBuffer(m_new_digest_index, &zero, 1, 0, sizeof(uint32_t), 0);
+
+			std::cout << "Step: " << i << "..." << std::endl;
 
 			m_zogKernels[1].setArg(0, m_digests[i % 2]);
-			m_zogKernels[1].setArg(1, m_digests[(i - 1)  % 2]);	
-			m_zogKernels[1].setArg(2, m_buckets);	
+			m_zogKernels[1].setArg(1, m_digests[(i - 1)  % 2]);
+			m_zogKernels[1].setArg(2, m_buckets);
 			m_zogKernels[1].setArg(3, i);
-			m_zogKernels[1].setArg(4, m_new_digest_index);	
+			m_zogKernels[1].setArg(4, m_new_digest_index);
 
 			m_queue.enqueueNDRangeKernel(m_zogKernels[1], cl::NullRange, m_globalWorkSize, s_workgroupSize);
 
@@ -448,13 +450,13 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 		}
 
 		uint32_t n_solutions = 0;
-		
+
 		//TODO Is this really necessary?
 		//This is not necessary, working on removing it
 		m_queue.enqueueFillBuffer(m_n_solutions, &zero, 1, 0, sizeof(uint32_t), 0);
 
 		m_zogKernels[2].setArg(0, m_dst_solutions);
-		m_zogKernels[2].setArg(1, m_n_solutions);	
+		m_zogKernels[2].setArg(1, m_n_solutions);
 		m_zogKernels[2].setArg(2, m_buckets);
 		m_zogKernels[2].setArg(3, m_digests[0]);
 		m_zogKernels[2].setArg(4, m_blake2b_digest);
@@ -475,15 +477,15 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 
 		// read results - The results don't change... just template for now
 		dst_solutions = (uint32_t*)m_queue.enqueueMapBuffer(m_dst_solutions, true, CL_MAP_READ, 0, 10*NUM_INDICES*sizeof(uint32_t));
-		solutions = (uint32_t*)m_queue.enqueueMapBuffer(m_n_solutions, true, CL_MAP_READ, 0, sizeof(uint32_t));	
+		solutions = (uint32_t*)m_queue.enqueueMapBuffer(m_n_solutions, true, CL_MAP_READ, 0, sizeof(uint32_t));
 
 		for(i = 0; i < n_solutions; ++i) {
         	normalize_indices(dst_solutions + (NUM_INDICES*i));
     	}
-		
+
 		std::cout << "Solutions: " << *solutions << std::endl;
- 		
-		
+
+
 
 		memcpy(sols, dst_solutions, 20*512*sizeof(uint32_t));
 		*n_sol = *solutions;
@@ -491,8 +493,8 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 		m_queue.enqueueFillBuffer(m_digests[0], &zero, 1, 0, (NUM_VALUES + NUM_VALUES / 2) * sizeof(digest_t), 0);
 		m_queue.enqueueFillBuffer(m_digests[1], &zero, 1, 0, (NUM_VALUES + NUM_VALUES / 2) * sizeof(digest_t), 0);
 		m_queue.enqueueFillBuffer(m_buckets, &zero, 1, 0, NUM_BUCKETS * sizeof(bucket_t) * EQUIHASH_K, 0);
-		m_queue.enqueueFillBuffer(m_new_digest_index, &zero, 1, 0, sizeof(uint32_t), 0); 
-		m_queue.enqueueFillBuffer(m_blake2b_digest, &zero, 1, 0, sizeof(crypto_generichash_blake2b_state), 0);		
+		m_queue.enqueueFillBuffer(m_new_digest_index, &zero, 1, 0, sizeof(uint32_t), 0);
+		m_queue.enqueueFillBuffer(m_blake2b_digest, &zero, 1, 0, sizeof(crypto_generichash_blake2b_state), 0);
 		m_queue.enqueueFillBuffer(m_dst_solutions, &zero, 1, 0, 20*NUM_INDICES*sizeof(uint32_t), 0);
 		m_queue.enqueueFillBuffer(m_n_solutions, &zero, 1, 0, sizeof(uint32_t), 0);
 
