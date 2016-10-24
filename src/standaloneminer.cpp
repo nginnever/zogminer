@@ -79,6 +79,8 @@ std::string HelpMessageMiner()
     strUsage += HelpMessageOpt("-regtest", _("Enter regression test mode, which uses a special chain in which blocks can be "
                                              "solved instantly. This is intended for regression testing tools and app development."));
     strUsage += HelpMessageOpt("-testnet", _("Use the test network"));
+	strUsage += HelpMessageOpt("-G", _("GPU mine"));
+	strUsage += HelpMessageOpt("-S=<deviceid>", _("Select GPU device (default: 0)"));
 
     return strUsage;
 }
@@ -95,12 +97,14 @@ std::string LicenseInfo()
            "\n";
 }
 
-void test_mine(int n, int k, uint32_t d)
+void test_mine(int n, int k, uint32_t d, bool GPU, int64_t selGPU)
 {
     CBlock pblock;
     pblock.nBits = d;
     arith_uint256 hashTarget = arith_uint256().SetCompact(d);
-    GPUSolver solver;
+	GPUSolver * solver;
+	if(GPU)
+    	solver = new GPUSolver(selGPU);
 
     while (true) {
         // Hash state
@@ -152,14 +156,21 @@ void test_mine(int n, int k, uint32_t d)
 
                 return true;
             };
-            std::function<bool(GPUSolverCancelCheck)> cancelled =
+            std::function<bool(GPUSolverCancelCheck)> cancelledGPU =
                     [](GPUSolverCancelCheck pos) {
+                return false;
+            };
+			std::function<bool(EhSolverCancelCheck)> cancelled =
+                    [](EhSolverCancelCheck pos) {
                 return false;
             };
             try {
                 uint64_t solve_start = rdtsc();
-                //bool foundBlock = EhOptimisedSolve(n, k, curr_state, validBlock, cancelled);
-		bool foundBlock = solver.run(n, k, curr_state, validBlock, cancelled);
+				bool foundBlock;
+				if(!GPU)
+                	foundBlock = EhOptimisedSolve(n, k, curr_state, validBlock, cancelled);
+				else
+					foundBlock = solver->run(n, k, curr_state, validBlock, cancelledGPU);
                 uint64_t solve_end = rdtsc();
                 LogPrint("cycles", "Solver took %2.2f Mcycles\n\n",
                          (double)(solve_end - solve_start) / (1UL << 20));
@@ -179,6 +190,10 @@ void test_mine(int n, int k, uint32_t d)
 
         pblock.hashPrevBlock = pblock.GetHash();
     }
+
+	if(GPU)
+		delete solver;
+
 }
 
 static ZcashStratumClient* scSig;
@@ -227,6 +242,9 @@ int main(int argc, char* argv[])
     LogPrintf("Zcash Miner version %s (%s)\n", FormatFullVersion(), CLIENT_DATE);
 
     // Start the mining operation
+	bool GPU = GetBoolArg("-G", false);
+	int64_t selGPU = GetArg("-S", 0);
+	//std::cout << GPU << " " << selGPU << std::endl;
     std::string stratum = GetArg("-stratum", "");
     if (!stratum.empty() || GetBoolArg("-stratum", false)) {
         if (stratum.compare(0, 14, "stratum+tcp://") != 0) {
@@ -270,7 +288,7 @@ int main(int argc, char* argv[])
         test_mine(
             Params().EquihashN(),
             Params().EquihashK(),
-            0x200f0f0f);
+            0x200f0f0f, GPU, selGPU);
     }
 
     return 0;

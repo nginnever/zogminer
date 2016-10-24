@@ -61,6 +61,7 @@ class GPUSolver {
 
 public:
 	GPUSolver();
+	GPUSolver(int64_t selGPU);
 	~GPUSolver();
         bool run(unsigned int n, unsigned int k, const eh_HashState& base_state,
 		            const std::function<bool(std::vector<unsigned char>)> validBlock,
