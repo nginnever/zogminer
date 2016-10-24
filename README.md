@@ -51,6 +51,14 @@ This should compile our dependencies and build zcash-miner. (Note: if you don't 
 
 ## Running
 
+Run GPU miner:
+
 ```
-$ ./src/zcash-miner
+$ ./src/zcash-miner -G
+```
+
+Usage:
+
+```
+$ ./src/zcash-miner -help
 ```
