@@ -123,6 +123,16 @@ bool GPUSolver::GPUSolve200_9(const eh_HashState& base_state,
             	index_vector[i] = indices[s * PROOFSIZE + i];
             }
             std::vector<unsigned char> sol_char = GetMinimalFromIndices(index_vector, DIGITBITS);
+            
+            bool isValid;
+            EhIsValidSolution(200, 9, base_state, sol_char, isValid);
+            std::cout << "is valid: " << isValid << '\n';
+            if (isValid) {
+            	// If we find a POW solution, do not try other solutions
+              	// because they become invalid as we created a new block in blockchain.
+				  std::cout << "Valid solution found!" << std::endl;
+              	  return true;
+            }
 
             if (validBlock(sol_char)) {
             	// If we find a POW solution, do not try other solutions
