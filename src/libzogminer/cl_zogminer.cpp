@@ -68,10 +68,17 @@ static void addDefinition(string& _source, char const* _id, unsigned _value)
 cl_zogminer::cl_zogminer()
 :	m_openclOnePointOne()
 {
+
+	dst_solutions = (uint32_t *) malloc(10*NUM_INDICES*sizeof(uint32_t));
+	if(dst_solutions == NULL)
+		std::cout << "Error allocating dst_solutions array!" << std::endl; 
+
 }
 
 cl_zogminer::~cl_zogminer()
 {
+	if(dst_solutions != NULL)
+		free(dst_solutions);
 	finish();
 }
 
@@ -268,10 +275,6 @@ void cl_zogminer::listDevices()
 
 void cl_zogminer::finish()
 {
-
-	// Unmap the mapped object
-	m_queue.enqueueUnmapMemObject(m_dst_solutions, dst_solutions);
-	m_queue.enqueueUnmapMemObject(m_n_solutions, solutions);
 
 	if (m_queue())
 		m_queue.finish();
@@ -481,16 +484,17 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 			m_queue.finish();*/
 
 		// read results - The results don't change... just template for now
-		dst_solutions = (uint32_t*)m_queue.enqueueMapBuffer(m_dst_solutions, true, CL_MAP_READ, 0, 10*NUM_INDICES*sizeof(uint32_t));
-		solutions = (uint32_t*)m_queue.enqueueMapBuffer(m_n_solutions, true, CL_MAP_READ, 0, sizeof(uint32_t));
+		//dst_solutions = (uint32_t*)m_queue.enqueueMapBuffer(m_dst_solutions, true, CL_MAP_READ, 0, 10*NUM_INDICES*sizeof(uint32_t));
+		//solutions = (uint32_t*)m_queue.enqueueMapBuffer(m_n_solutions, true, CL_MAP_READ, 0, sizeof(uint32_t));
+
+		m_queue.enqueueReadBuffer(m_dst_solutions, true, 0, 10*NUM_INDICES*sizeof(uint32_t), dst_solutions);
+		m_queue.enqueueReadBuffer(m_n_solutions, true, 0, sizeof(uint32_t), solutions);
 
 		for(i = 0; i < *solutions; ++i) {
         	normalize_indices(dst_solutions + (NUM_INDICES*i));
     	}
 
 		std::cout << "Solutions: " << *solutions << std::endl;
-
-
 
 		memcpy(sols, dst_solutions, 20*512*sizeof(uint32_t));
 		*n_sol = *solutions;
