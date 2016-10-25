@@ -650,7 +650,7 @@ __kernel void bucket_collide_and_hash(__global digest_t* dst_digests, __global d
             __global element_t* new_el = dst_buckets[new_index].data + atomic_add(&dst_buckets[new_index].size, 1);
             set_element_parent_bucket_data(new_el, current_bucket_index, a, b);
             new_el->digest_index = atomic_add(new_digest_index, 1);
-            //for(uint32_t h = 0; h < 2; ++h){
+            //for(uint32_t h = 0; h < 2; h++){
             //    new_el->digest_index = (get_global_id(0) * 2) + h;
             //}
 

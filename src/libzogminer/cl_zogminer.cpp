@@ -28,7 +28,7 @@
 using namespace std;
 
 unsigned const cl_zogminer::c_defaultLocalWorkSize = 32;
-unsigned const cl_zogminer::c_defaultGlobalWorkSizeMultiplier = 32768; // * CL_DEFAULT_LOCAL_WORK_SIZE
+unsigned const cl_zogminer::c_defaultGlobalWorkSizeMultiplier = 4096; // * CL_DEFAULT_LOCAL_WORK_SIZE
 unsigned const cl_zogminer::c_defaultMSPerBatch = 0;
 bool cl_zogminer::s_allowCPU = false;
 unsigned cl_zogminer::s_extraRequiredGPUMem;

@@ -25,7 +25,7 @@
 
 #include "gpusolver.h"
 
-//#define DEBUG
+#define DEBUG
 
 GPUSolver::GPUSolver() {
 
@@ -43,7 +43,7 @@ GPUSolver::GPUSolver() {
 	//uint32_t global_work_size = z_N;
 
 	//TODO This looks like IND_PER_BUCKET, enough for GPU?
-	size_t global_work_size = 1 << 17;
+	size_t global_work_size = 1 << 20;
     size_t local_work_size = 32;
 
 	miner = new cl_zogminer();
