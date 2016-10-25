@@ -134,7 +134,7 @@ private:
 	cl::Buffer m_dst_solutions;
 	cl::Buffer m_n_solutions;
 	const cl_int zero = 0;
-	uint32_t * solutions;
+	uint32_t solutions;
 	uint32_t * dst_solutions;
 
 	unsigned m_globalWorkSize;

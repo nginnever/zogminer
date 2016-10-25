@@ -488,18 +488,18 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 		//solutions = (uint32_t*)m_queue.enqueueMapBuffer(m_n_solutions, true, CL_MAP_READ, 0, sizeof(uint32_t));
 
 		m_queue.enqueueReadBuffer(m_dst_solutions, true, 0, 10*NUM_INDICES*sizeof(uint32_t), dst_solutions);
-		m_queue.enqueueReadBuffer(m_n_solutions, true, 0, sizeof(uint32_t), solutions);
+		m_queue.enqueueReadBuffer(m_n_solutions, true, 0, sizeof(uint32_t), &solutions);
 
 		m_queue.finish();
 		
-		for(i = 0; i < *solutions; ++i) {
+		for(i = 0; i < solutions; ++i) {
         	normalize_indices(dst_solutions + (NUM_INDICES*i));
     	}
 
-		std::cout << "Solutions: " << *solutions << std::endl;
+		std::cout << "Solutions: " << solutions << std::endl;
 
 		memcpy(sols, dst_solutions, 20*512*sizeof(uint32_t));
-		*n_sol = *solutions;
+		*n_sol = solutions;
 
 		m_queue.enqueueFillBuffer(m_digests[0], &zero, 1, 0, (NUM_VALUES + NUM_VALUES / 2) * sizeof(digest_t), 0);
 		m_queue.enqueueFillBuffer(m_digests[1], &zero, 1, 0, (NUM_VALUES + NUM_VALUES / 2) * sizeof(digest_t), 0);
