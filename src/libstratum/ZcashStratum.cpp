@@ -262,7 +262,7 @@ std::string ZcashJob::getSubmission(const EquihashSolution* solution)
 }
 
 ZcashMiner::ZcashMiner(int threads, GPUConfig _conf)
-    : nThreads{threads}, minerThreads{nullptr}, conf{_conf}
+    : nThreads{threads}, minerThreads{nullptr}, conf(_conf)
 {
     if (nThreads < 0) {
         nThreads = boost::thread::hardware_concurrency();
