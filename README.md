@@ -9,6 +9,7 @@ Check the project's [roadmap](https://github.com/nginnever/zogminer/blob/master/
 
 [![Project Status](https://badge.waffle.io/nginnever/zogminer.svg?label=In%20Progress&title=In%20Progress)](https://waffle.io/nginnever/zogminer)
 [![Build Status](https://travis-ci.org/nginnever/zogminer.svg?branch=master)](https://travis-ci.org/nginnever/zogminer)
+[![Gitter chat](https://badges.gitter.im/gitterHQ/gitterHQ.github.io.svg)](https://gitter.im/zogminer/dev)
 
 ## Building
 
@@ -88,3 +89,17 @@ Next run zcashd:
 ```
 ./src/zcashd
 ```
+
+## Donations
+
+@nginnever
+
+BTC: 1A67XmfyukPNbrMmckBToE8xZPesuM6Ti1
+
+ETH: 0x82a642cAFD6bFc228C7B5Ea0394A0Ad702A7c03D
+
+@omaralvarez
+
+BTC: 18tvCqDFAFWv3jwDqXe5SBs6bmy9Xn4bnN
+
+ETH: 0x000DCB7ccB55faDaEc5C4A13E173a1E30e643867
