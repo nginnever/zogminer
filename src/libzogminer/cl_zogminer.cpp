@@ -484,7 +484,7 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 		dst_solutions = (uint32_t*)m_queue.enqueueMapBuffer(m_dst_solutions, true, CL_MAP_READ, 0, 10*NUM_INDICES*sizeof(uint32_t));
 		solutions = (uint32_t*)m_queue.enqueueMapBuffer(m_n_solutions, true, CL_MAP_READ, 0, sizeof(uint32_t));
 
-		for(i = 0; i < n_solutions; ++i) {
+		for(i = 0; i < *solutions; ++i) {
         	normalize_indices(dst_solutions + (NUM_INDICES*i));
     	}
 
