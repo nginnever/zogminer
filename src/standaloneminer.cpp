@@ -34,6 +34,7 @@
 #include "version.h"
 
 #include "libzogminer/gpusolver.h"
+#include "libzogminer/gpuconfig.h"
 #include "libzogminer/cl_zogminer.h"
 
 #include "sodium.h"
@@ -99,14 +100,14 @@ std::string LicenseInfo()
            "\n";
 }
 
-void test_mine(int n, int k, uint32_t d, bool GPU, int64_t selGPU)
+void test_mine(int n, int k, uint32_t d, GPUConfig conf)
 {
     CBlock pblock;
     pblock.nBits = d;
     arith_uint256 hashTarget = arith_uint256().SetCompact(d);
 	GPUSolver * solver;
-	if(GPU)
-    	solver = new GPUSolver(selGPU);
+	if(conf.useGPU)
+    	solver = new GPUSolver(conf.selGPU);
 
     while (true) {
         // Hash state
@@ -169,7 +170,7 @@ void test_mine(int n, int k, uint32_t d, bool GPU, int64_t selGPU)
             try {
                 uint64_t solve_start = rdtsc();
 				bool foundBlock;
-				if(!GPU)
+				if(!conf.useGPU)
                 	foundBlock = EhOptimisedSolve(n, k, curr_state, validBlock, cancelled);
 				else
 					foundBlock = solver->run(n, k, curr_state, validBlock, cancelledGPU);
@@ -193,7 +194,7 @@ void test_mine(int n, int k, uint32_t d, bool GPU, int64_t selGPU)
         pblock.hashPrevBlock = pblock.GetHash();
     }
 
-	if(GPU)
+	if(conf.useGPU)
 		delete solver;
 
 }
@@ -223,16 +224,19 @@ int main(int argc, char* argv[])
         std::cout << strUsage;
         return 1;
     }
-
-	bool GPU = GetBoolArg("-G", false);
-	int64_t selGPU = GetArg("-S", 0);
-	//std::cout << GPU << " " << selGPU << std::endl;
+	
 	if(GetBoolArg("-listdevices", false)) {
 		//Generic Things
 		std::cout << "Number of Platforms:" << cl_zogminer::getNumPlatforms << "\n";
 		cl_zogminer::listDevices();
 		return 0;
 	}
+
+	GPUConfig conf;
+
+	conf.useGPU = GetBoolArg("-G", false);
+	conf.selGPU = GetArg("-S", 0);
+	//std::cout << GPU << " " << selGPU << std::endl;
 
     // Zcash debugging
     fDebug = !mapMultiArgs["-debug"].empty();
@@ -276,7 +280,7 @@ int main(int argc, char* argv[])
             return false;
         }
 
-        ZcashMiner miner(GetArg("-genproclimit", 1), GPU, selGPU);
+        ZcashMiner miner(GetArg("-genproclimit", 1), conf);
         ZcashStratumClient sc {
             &miner, host, port,
             GetArg("-user", "x"),
@@ -299,7 +303,7 @@ int main(int argc, char* argv[])
         test_mine(
             Params().EquihashN(),
             Params().EquihashK(),
-            0x200f0f0f, GPU, selGPU);
+            0x200f0f0f, conf);
     }
 
     return 0;

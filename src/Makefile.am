@@ -84,6 +84,7 @@ LIBZCASH_H = \
 
 LIBZOGMINER_H = \
   libzogminer/gpusolver.h \
+  libzogminer/gpuconfig.h \
   libzogminer/kernels/cl_zogminer_kernel.h \
   libzogminer/cl_zogminer.h \
   libzogminer/cl.hpp
