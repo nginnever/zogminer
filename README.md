@@ -51,7 +51,7 @@ This should compile our dependencies and build zcash-miner. (Note: if you don't 
 
 ## Running
 
-# Run GPU test miner
+### Run GPU test miner
 
 ```
 $ ./src/zcash-miner -G
@@ -63,13 +63,13 @@ Usage:
 $ ./src/zcash-miner -help
 ```
 
-# Stratum
+### Stratum
 
 ```
 ./src/zcash-miner -G -stratum="stratum+tcp://<address>:<port>" -user=<user> -password=<pass>
 ```
 
-# Solo mine ZCash
+### Solo mine ZCash
 
 First create or modify ```~/.zcash/zcash.conf``` with the following:
 
