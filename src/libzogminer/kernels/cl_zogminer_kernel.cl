@@ -692,7 +692,7 @@ __kernel void produce_solutions(__global uint32_t* dst_solutions, __global volat
     size_t byte_index = start_bit / 8;
     size_t bit_index = start_bit % 8;
     __global bucket_t* src_buckets = buckets + (EQUIHASH_K-1)*NUM_BUCKETS;
-    size_t start = get_global_id(0) * (NUM_BUCKETS / get_global_size(0)) + 1;
+    size_t start = get_global_id(0) * (NUM_BUCKETS / get_global_size(0));
     size_t end = (get_global_id(0)+1) * (NUM_BUCKETS / get_global_size(0));
 
     for(size_t i = start; i < end; ++i) {

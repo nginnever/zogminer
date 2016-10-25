@@ -1,0 +1,129 @@
+// global = 1 << 17 == 131072 
+// global id range 0 - 131071 
+// (NUM_VALUES / 2) / get_global_size(0) == 8
+// each worker hashes 8 times, generating 16 hashes 
+// the number of buckets is 1 << 20 for 8 elements a bucket, not guaranteed 
+// 1st kernel protocol:
+// inputs: 
+//	digest destination buffer, 
+//	buckets buffer, the blake base state, 
+//	and buffer for holding the index values
+
+// for each hash generation, create a hash and split in half 
+// 1st half: get the index based on the first mask_collision_bits : TODO check the basemap, make sure it isnt putting two elements into a bucket 
+//    create a new element 
+//        from the global bucket buffer grab bucket from that index. 
+//        put the new element in the buckets internal data buffer at size of bucket + 1, last spot 
+//        set that elements digest index to the global total number of new hashes created + 1, incrementing the blake2b_increment_counter 
+//          This is the where part of xenoncat paper, this describes where in a total list of 1 << 21 hashes you saw this one 
+//    set the elements parent data to 0, 0 since there are no parent indices that created this element 
+//        this takes the dst element to be set, the index of the parent bucket in buffer, the element indices for the pair //    set the global digest array with the new hash at the element index, this will give a buffer of sorted hashes
+
+
+// 2nd kernel protocol: // start bit defines what collision portion of the hash we are on based on the k ROUND
+// inputs:
+//  the destination digest buffer
+//  the source digest buffer
+//	the current k round number, 
+//	buckets buffer, the blake base state, 
+//	and buffer for holding the index values
+
+// byte_index is 2, 5, 7, 8, 12, 15, 17, 20, 22
+// the bit index is 4, 0, 4, 0, 4, 0, 4, 0, 4
+// start is the workers partitioned by 8 buckets
+// end is the beginning of the next worker handling 8 buckets
+
+// get the buckets buffer from the list generations round for k = 1, other wise get from the previous call to this kernel
+// each round keeps all of the buckets in this buffer, the pointer moves up the number of buckets every k round
+// set the destination of new buckets the next partition
+
+// for each worker, iterate over each of the 8 buckets they are in charge of
+//    grab bucket from the source section of the buffer, for 0 to 8
+//    for each bucket grabbed, iterated over the number of elements in that bucket
+//        grab an element of that bucket from 0 to the end of elements
+//        grab the hash from the source section of the digest buffer the correspond to this elements index
+//        create a new index based upon this k rounds collision bit and byte range
+//        for starting from the next element in the bucket after the one we are on, go to the end of elements in the bucket
+//            grab the element from the bucket we are in to compare with the base element
+//            grab the corresponding hash from the src digests buffer
+//            create a new index by binary XORing the base elements new index with compared to elements new index
+//            if this new index is 0, this means that there is a collision on that rounds section of the hash, since where they where to be distributed is the same, XOR copies to 0 if both elements are the same
+//            break out here if there is NO collision and try the base for a collision on the next element
+//            otherwise grab some space from the destination section of the buckets elements buffer
+//            we are going to be placing a new element into the destination bucket space at the new index generated from the XOR collision
+//            at the same time as getting the buffer space, we are incrementing the new buckets size as always, letting the next round know how many elements land there
+//            next we set the parent data for the newly generated index, keeping a record of where it came from
+//            set the digest index of the new element to the incremented global new digests index number, this is the where seen part
+//            then we need to actually xor the hashes and place the new hash in the next partition of digest space
+//                this takes a pointer to the buffer location of the destination of the new hashes partition at the new elements digest index from two lines up
+//                and the base hash we start the compares with
+//                and hash of the element we found a collision on
+//    reset the bucket size when done
+
+// 3rd Kernel protocol
+// inputs: 
+//  the destination digest buffer
+//  the buckets buffer
+//  the source digest buffer
+//  the blake state
+
+// set the start bit to the number of k round times the number of collision bits
+// the byte index is the start bit divided by 8
+// the bit index is mod 8
+// grab source buckets at k - 1 times the number of buckets, the last partition of the buckets buffer
+// set the start and end the same as before
+// for start to end like before
+//		grab the buckets from the buffer at each step
+//      initialize an integer for a has duplication hash
+//      for for every element in the bucket, and that there are no duplicates in the bucket
+//			grab an element from the bucket to be a base to compare to
+//			for the next element in the bucket, to the end
+//				grab the element
+//				create a new index by masemapping the last bits for the base digest
+//				do the same for the element digest
+//				compare the indices, if they are the same and the base index is not 0
+//				  create an uncompressed indices array
+//				  decompress the base elements indices, more on this in a future post
+//				  same for the element
+//				  for the number of indices 512 and there are no duplicates
+//					  check the the uncompressed indices for a duplicate
+//					  set the dupe flag to true if there is, break out of the bucket
+//				  if there is no duplicates, copy the uncompressed indices array to the n_solutions array
+//					else break
+//		set the bucket size to 0		
+
+
+// decompress indices protocol:
+// inputs:
+//		int decompressed indices
+//		buckets buffer
+//		element old source
+//
+//  create a two dim array of elements
+//  set the first array of array of indices to the old source element
+//  for each k round
+//		for 2 to the power of the current round in k
+//		grab the location of element at index this k round plus 2^this_k_round
+//		initialize a parent bucket integer
+//		
+
+
+// normalize indices protocol
+// inputs:
+//   a solution set of 512 indices
+//
+// create a list of element vectors X, one for each index
+// while the size of that list is greater than 1
+//		create a new list Xc
+//		step through the list of X, grabbing two elements at a time
+//		see if those two elements collide, index in correct orderm, and no duplicates
+//		place the pair into the new Xc list
+// set X equal to Xc
+// after comparing all of the elements the first time
+// we will be left with a list of 256 elements representing 512 indices
+// 		loop again over 256 elements
+//			create a new list Xc
+//			compare the elements and verify
+//			put the new elements into Xc
+//		set X = Xc... X now has 128 elements in it
+			loop again over 128 elements until there is only one element in X. that is the solution
