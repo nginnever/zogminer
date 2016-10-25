@@ -25,7 +25,7 @@
 
 #include "gpusolver.h"
 
-#define DEBUG
+//#define DEBUG
 
 GPUSolver::GPUSolver() {
 
