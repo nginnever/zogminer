@@ -16,7 +16,7 @@
 #include <atomic>
 
 
-void static ZcashMinerThread(ZcashMiner* miner, int size, int pos, bool GPU, int64_t selGPU)
+void static ZcashMinerThread(ZcashMiner* miner, int size, int pos, GPUConfig conf)
 {
     LogPrintf("ZcashMinerThread started\n");
     RenameThread("zcash-miner");
@@ -34,8 +34,8 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos, bool GPU, int
     std::atomic_bool cancelSolver {false};
 
     GPUSolver * solver;
-	if(GPU)
-    	solver = new GPUSolver(selGPU);
+	if(conf.useGPU)
+    	solver = new GPUSolver(conf.selGPU);
 
     miner->NewJob.connect(NewJob_t::slot_type(
         [&m_zmt, &header, &space, &offset, &inc, &target, &workReady, &cancelSolver]
@@ -143,7 +143,7 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos, bool GPU, int
                 };
                 try {
                     // If we find a valid block, we get more work
-					if(!GPU) {
+					if(!conf.useGPU) {
                 		if (EhOptimisedSolve(n, k, curr_state, validBlock, cancelled)) {
 		                    break;
 		                }
@@ -180,19 +180,19 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos, bool GPU, int
     catch (const boost::thread_interrupted&)
     {
         LogPrintf("ZcashMinerThread terminated\n");
-		if(GPU)
+		if(conf.useGPU)
 			delete solver;
         throw;
     }
     catch (const std::runtime_error &e)
     {
         LogPrintf("ZcashMinerThread runtime error: %s\n", e.what());
-		if(GPU)
+		if(conf.useGPU)
 			delete solver;
         return;
     }
 
-	if(GPU)
+	if(conf.useGPU)
 		delete solver;
 
 }
@@ -261,8 +261,8 @@ std::string ZcashJob::getSubmission(const EquihashSolution* solution)
     return stream.str();
 }
 
-ZcashMiner::ZcashMiner(int threads, bool _GPU, int64_t _selGPU)
-    : nThreads{threads}, minerThreads{nullptr}, GPU{_GPU}, selGPU{_selGPU}
+ZcashMiner::ZcashMiner(int threads, GPUConfig _conf)
+    : nThreads{threads}, minerThreads{nullptr}, conf{_conf}
 {
     if (nThreads < 0) {
         nThreads = boost::thread::hardware_concurrency();
@@ -287,7 +287,7 @@ void ZcashMiner::start()
 
     minerThreads = new boost::thread_group();
     for (int i = 0; i < nThreads; i++) {
-        minerThreads->create_thread(boost::bind(&ZcashMinerThread, this, nThreads, i, GPU, selGPU));
+        minerThreads->create_thread(boost::bind(&ZcashMinerThread, this, nThreads, i, conf));
     }
 }
 

@@ -49,6 +49,8 @@
 
 #include "libsnark/common/profiling.hpp"
 
+#include "libzogminer/gpuconfig.h"
+
 using namespace std;
 
 extern void ThreadSendAlert();
@@ -1482,8 +1484,12 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
 
 #ifdef ENABLE_WALLET
     // Generate coins in the background
-    if (pwalletMain)
-        GenerateBitcoins(GetBoolArg("-gen", false), pwalletMain, GetArg("-genproclimit", 1));
+    if (pwalletMain) {
+		GPUConfig conf;
+		conf.useGPU = GetBoolArg("-GPU", false);
+		conf.selGPU = GetArg("-deviceid", 0); 
+        GenerateBitcoins(GetBoolArg("-gen", false), pwalletMain, GetArg("-genproclimit", 1), conf);
+	}
 #endif
 
     // ********************************************************* Step 11: finished

@@ -13,6 +13,8 @@
 
 #include "json/json_spirit_value.h"
 
+#include "libzogminer/gpuconfig.h"
+
 using namespace json_spirit;
 
 
@@ -76,13 +78,12 @@ class ZcashMiner
     arith_uint256 nonce2Inc;
     std::function<bool(const EquihashSolution&)> solutionFoundCallback;
 
-	bool GPU;
-	int64_t selGPU;
+	GPUConfig conf;
 
 public:
     NewJob_t NewJob;
 
-	ZcashMiner(int threads, bool GPU, int64_t selGPU);
+	ZcashMiner(int threads, GPUConfig conf);
 
     std::string userAgent();
     void start();
