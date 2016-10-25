@@ -25,7 +25,7 @@
 
 #include "gpusolver.h"
 
-//#define DEBUG
+#define DEBUG
 
 GPUSolver::GPUSolver() {
 
@@ -47,6 +47,10 @@ GPUSolver::GPUSolver() {
     size_t local_work_size = 32;
 
 	miner = new cl_zogminer();
+
+	indices = (uint32_t *) malloc(20*PROOFSIZE*sizeof(uint32_t));
+	if(indices == NULL)
+		std::cout << "Error allocating indices array!" << std::endl; 
 
 	/* Checks each device for memory requirements and sets local/global sizes
 	TODO: Implement device logic for equihash kernel
@@ -87,10 +91,14 @@ GPUSolver::GPUSolver(int64_t selGPU) {
 	//uint32_t global_work_size = z_N;
 
 	//TODO This looks like IND_PER_BUCKET, enough for GPU?
-	size_t global_work_size = 1 << 17;
+	size_t global_work_size = 1 << 20;
     size_t local_work_size = 32;
 
 	miner = new cl_zogminer();
+
+	indices = (uint32_t *) malloc(20*PROOFSIZE*sizeof(uint32_t));
+	if(indices == NULL)
+		std::cout << "Error allocating indices array!" << std::endl; 
 
 	/* Checks each device for memory requirements and sets local/global sizes
 	TODO: Implement device logic for equihash kernel
@@ -122,6 +130,9 @@ GPUSolver::~GPUSolver() {
 
 	delete miner;
 
+	if(indices != NULL)
+		free(indices);
+
 }
 
 bool GPUSolver::run(unsigned int n, unsigned int k, const eh_HashState& base_state,
@@ -148,12 +159,11 @@ bool GPUSolver::GPUSolve200_9(const eh_HashState& base_state,
 	if(GPU && initOK) {
         auto t = std::chrono::high_resolution_clock::now();
 
-		uint32_t n_sol;
-
     	miner->run(base_state, indices, &n_sol);
 
 		auto d = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t);
 		auto milis = std::chrono::duration_cast<std::chrono::milliseconds>(d).count();
+
 		if(!counter) {
 			sum = 1000.f*n_sol/milis;
 		} else { 

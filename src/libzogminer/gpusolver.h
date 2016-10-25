@@ -73,7 +73,8 @@ private:
 	bool initOK;
 	static const uint32_t PROOFSIZE = 1 << EK;
 	//TODO 20?
-	uint32_t indices[20*PROOFSIZE];
+	uint32_t * indices;
+	uint32_t n_sol;
 	//Avg
 	uint32_t counter = 0;
 	float sum = 0.f;
