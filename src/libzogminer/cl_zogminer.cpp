@@ -431,7 +431,7 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 
 		// execute it!
 		// Here we assume an 1-Dimensional problem split into local worksizes
-		m_queue.enqueueNDRangeKernel(m_zogKernels[0], cl::NullRange, m_globalWorkSize, s_workgroupSize);
+		m_queue.enqueueNDRangeKernel(m_zogKernels[0], cl::NullRange, 1048576, 32);
 
 		m_queue.enqueueBarrier();
 
@@ -448,7 +448,7 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 			m_zogKernels[1].setArg(3, i);
 			m_zogKernels[1].setArg(4, m_new_digest_index);
 
-			m_queue.enqueueNDRangeKernel(m_zogKernels[1], cl::NullRange, m_globalWorkSize, s_workgroupSize);
+			m_queue.enqueueNDRangeKernel(m_zogKernels[1], cl::NullRange, 1048576, 32);
 
 			m_queue.enqueueBarrier();
 
@@ -466,7 +466,7 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 		m_zogKernels[2].setArg(3, m_digests[0]);
 		m_zogKernels[2].setArg(4, m_blake2b_digest);
 
-		m_queue.enqueueNDRangeKernel(m_zogKernels[2], cl::NullRange, m_globalWorkSize, s_workgroupSize);
+		m_queue.enqueueNDRangeKernel(m_zogKernels[2], cl::NullRange, 1048576, 32);
 
 		m_queue.enqueueBarrier();
 

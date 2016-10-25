@@ -25,7 +25,7 @@
 
 #include "gpusolver.h"
 
-//#define DEBUG
+#define DEBUG
 
 GPUSolver::GPUSolver() {
 
@@ -181,6 +181,8 @@ bool GPUSolver::GPUSolve200_9(const eh_HashState& base_state,
 				  //If we find invalid solution bail, it cannot be a valid POW
 				  std::cout << "Invalid solution found!" << std::endl;
               	  return false;
+            } else {
+            	std::cout << "Valid solution found!" << std::endl;
             }
 #endif
             if (validBlock(sol_char)) {
