@@ -38,19 +38,20 @@ int main(int argc, char** argv) {
         uint32_t indices[20*512];
         size_t n_solutions = equihash(indices, &curr_state);
         total += n_solutions;
+        
+/*        for(size_t i = 0; i < n_solutions; ++i) {
+            for(size_t k = 0; k < 512; ++k) {
+                printf("%u ", indices[i*512+k]);
+            }
+
+            printf("\n\n");
+        }*/
+
     }
     printf("********************\n");
     printf("number of runs: %u\n", i);
     printf("solutions found: %u\n", total);
     printf("********************\n");
     //printf("Average solutions per list: %u\n", total/i);
-/*    for(size_t i = 0; i < n_solutions; ++i) {
-        for(size_t k = 0; k < 512; ++k) {
-            printf("%u ", indices[i*512+k]);
-        }
-
-        printf("\n\n");
-    }
-*/
     return 0;
 }
