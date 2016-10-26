@@ -71,7 +71,7 @@ cl_zogminer::cl_zogminer()
 
 	dst_solutions = (uint32_t *) malloc(10*NUM_INDICES*sizeof(uint32_t));
 	if(dst_solutions == NULL)
-		std::cout << "Error allocating dst_solutions array!" << std::endl; 
+		std::cout << "Error allocating dst_solutions array!" << std::endl;
 
 }
 
@@ -474,7 +474,7 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 		m_zogKernels[2].setArg(4, m_blake2b_digest);
 		m_zogKernels[2].setArg(5, m_elements);
 
-		m_queue.enqueueNDRangeKernel(m_zogKernels[2], cl::NullRange, 1 << 16, 32);
+		m_queue.enqueueNDRangeKernel(m_zogKernels[2], cl::NullRange, 1 << 20, 32);
 
 		m_queue.enqueueBarrier();
 
@@ -496,7 +496,7 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 		m_queue.enqueueReadBuffer(m_n_solutions, true, 0, sizeof(uint32_t), &solutions);
 
 		m_queue.finish();
-		
+
 		for(i = 0; i < solutions; ++i) {
         	normalize_indices(dst_solutions + (NUM_INDICES*i));
     	}
