@@ -25,7 +25,7 @@
 
 #include "gpusolver.h"
 
-//#define DEBUG
+#define DEBUG
 
 GPUSolver::GPUSolver() {
 
@@ -172,12 +172,13 @@ bool GPUSolver::GPUSolve200_9(const eh_HashState& base_state,
 		
 		avg = sum/++counter;				
 		
-		std::cout << "Kernel run took " << milis << " ms. (" << avg << " H/s)" << std::endl;
+		if(!(counter % 10))
+			std::cout << "Kernel run took " << milis << " ms. (" << avg << " H/s)" << std::endl;
 
 		size_t checkedSols = 0;
         for (size_t s = 0; s < n_sol; ++s) {
         	++checkedSols;
-            std::cout << "Checking solution " << checkedSols << std::endl;
+            //std::cout << "Checking solution " << checkedSols << std::endl;
             std::vector<eh_index> index_vector(PROOFSIZE);
             for (size_t i = 0; i < PROOFSIZE; i++) {
             	index_vector[i] = indices[s * PROOFSIZE + i];
@@ -198,7 +199,7 @@ bool GPUSolver::GPUSolve200_9(const eh_HashState& base_state,
             if (validBlock(sol_char)) {
             	// If we find a POW solution, do not try other solutions
               	// because they become invalid as we created a new block in blockchain.
-				  std::cout << "Valid block found!" << std::endl;
+				  //std::cout << "Valid block found!" << std::endl;
               	  return true;
             }
         }
