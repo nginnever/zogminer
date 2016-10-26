@@ -469,7 +469,7 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 		m_zogKernels[2].setArg(3, m_digests[0]);
 		m_zogKernels[2].setArg(4, m_blake2b_digest);
 
-		m_queue.enqueueNDRangeKernel(m_zogKernels[2], cl::NullRange, 1048576, 32);
+		m_queue.enqueueNDRangeKernel(m_zogKernels[2], cl::NullRange, 524288, 32);
 
 		m_queue.enqueueBarrier();
 
