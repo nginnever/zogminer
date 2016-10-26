@@ -23,7 +23,7 @@
 #undef min
 #undef max
 
-//#define DEBUG
+#define DEBUG
 
 using namespace std;
 
@@ -393,6 +393,10 @@ bool cl_zogminer::init(
 		m_n_solutions = cl::Buffer(m_context, CL_MEM_READ_WRITE, sizeof(uint32_t), NULL, NULL);
 		m_queue.enqueueFillBuffer(m_n_solutions, &zero, 1, 0, sizeof(uint32_t), 0);
 
+		m_elements = cl::Buffer(m_context, CL_MEM_READ_WRITE, sizeof(element_t)*EQUIHASH_K*NUM_INDICES/2*(1<<16), NULL, NULL);
+		m_queue.enqueueFillBuffer(m_elements, &zero, 1, 0, sizeof(element_t)*EQUIHASH_K*NUM_INDICES/2*(1<<16), 0);
+
+
 	}
 	catch (cl::Error const& err)
 	{
@@ -434,7 +438,7 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 
 		// execute it!
 		// Here we assume an 1-Dimensional problem split into local worksizes
-		m_queue.enqueueNDRangeKernel(m_zogKernels[0], cl::NullRange, 1048576, 32);
+		m_queue.enqueueNDRangeKernel(m_zogKernels[0], cl::NullRange, 1 << 20, 32);
 
 		m_queue.enqueueBarrier();
 
@@ -451,7 +455,7 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 			m_zogKernels[1].setArg(3, i);
 			m_zogKernels[1].setArg(4, m_new_digest_index);
 
-			m_queue.enqueueNDRangeKernel(m_zogKernels[1], cl::NullRange, 1048576, 32);
+			m_queue.enqueueNDRangeKernel(m_zogKernels[1], cl::NullRange, 1 << 20, 32);
 
 			m_queue.enqueueBarrier();
 
@@ -468,8 +472,9 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 		m_zogKernels[2].setArg(2, m_buckets);
 		m_zogKernels[2].setArg(3, m_digests[0]);
 		m_zogKernels[2].setArg(4, m_blake2b_digest);
+		m_zogKernels[2].setArg(5, m_elements);
 
-		m_queue.enqueueNDRangeKernel(m_zogKernels[2], cl::NullRange, 524288, 32);
+		m_queue.enqueueNDRangeKernel(m_zogKernels[2], cl::NullRange, 1 << 16, 32);
 
 		m_queue.enqueueBarrier();
 

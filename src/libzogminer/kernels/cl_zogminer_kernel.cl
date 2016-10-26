@@ -516,11 +516,6 @@ void blake2b(uint8_t *out,
 /* END OF BLAKE2B CODE */
 
 
-// TODO REMOVE THIS LINE FOR GPU
-#ifdef cl_intel_printf
-#pragma OPENCL EXTENSION cl_intel_printf : enable
-#endif
-
 #define EQUIHASH_N 200
 #define EQUIHASH_K 9
 
@@ -560,7 +555,7 @@ void set_element_parent_bucket_data(__global element_t* dst, uint32_t parent_buc
     //dst->b_parent_bucket_sub_index = b;
 }
 
-void get_element_parent_bucket_data(element_t* src, uint32_t* parent_bucket_index, uint8_t* a, uint8_t* b) {
+void get_element_parent_bucket_data(__global element_t* src, uint32_t* parent_bucket_index, uint8_t* a, uint8_t* b) {
   *parent_bucket_index = src->parent_bucket_data >> 8;
   *a = (src->parent_bucket_data >> 4) & 0xf;
   *b = (src->parent_bucket_data & 0xf);
@@ -602,86 +597,82 @@ void xor_elements(__global uint8_t* dst, __global uint8_t* a, __global uint8_t* 
 __kernel void initial_bucket_hashing(__global bucket_t* dst_buckets, __global digest_t* dst_digests, __constant const blake2b_state* digest, __global volatile uint32_t* new_digest_index) {
     uint8_t new_digest[2*DIGEST_SIZE];
     memset(new_digest, '\0', 2*DIGEST_SIZE);
-    size_t start = get_global_id(0) * ((NUM_VALUES / 2) / get_global_size(0));
-    size_t end = (get_global_id(0)+1) * ((NUM_VALUES / 2) / get_global_size(0));
+    size_t start = get_global_id(0);
     uint64_t tmp = *new_digest_index;
 
-    for(uint32_t i = start; i < end; ++i) {
-        blake2b_state current_digest = *digest;
-        blake2b_update(&current_digest, (uint8_t*)&i, sizeof(uint32_t));
-        blake2b_final(&current_digest, (uint8_t*)(new_digest), 2*DIGEST_SIZE);
+    blake2b_state current_digest = *digest;
+    blake2b_update(&current_digest, (uint8_t*)&start, sizeof(uint32_t));
+    blake2b_final(&current_digest, (uint8_t*)(new_digest), 2*DIGEST_SIZE);
 
-        for(uint32_t j = 0; j < 2; ++j) {
-            uint32_t new_index = mask_collision_bits_step0(new_digest + (j*EQUIHASH_N/8), 0);
-            __global element_t* new_el = dst_buckets[new_index].data + atomic_add(&dst_buckets[new_index].size, 1);
-            //new_el->digest_index = atomic_add(new_digest_index, 1);
-            new_el->digest_index = (get_global_id(0) * 2) + j;
+    for(uint32_t j = 0; j < 2; ++j) {
+        uint32_t new_index = mask_collision_bits_step0(new_digest + (j*EQUIHASH_N/8), 0);
+        __global element_t* new_el = dst_buckets[new_index].data + atomic_add(&dst_buckets[new_index].size, 1);
+        new_el->digest_index = atomic_add(new_digest_index, 1);
 
-            set_element_parent_bucket_data(new_el, i*2 + j, 0, 0);
-            memcpy_step0((__global void*)(dst_digests + new_el->digest_index), new_digest + (j*EQUIHASH_N/8), DIGEST_SIZE);
-        }
-    }
+        set_element_parent_bucket_data(new_el, start*2 + j, 0, 0);
+        memcpy_step0(dst_digests + new_el->digest_index, new_digest + (j*EQUIHASH_N/8), DIGEST_SIZE);
+     }
 }
 
 __kernel void bucket_collide_and_hash(__global digest_t* dst_digests, __global digest_t* src_digests, __global bucket_t* buckets, uint32_t step_index, __global volatile uint32_t* new_digest_index) {
     size_t start_bit = (step_index*NUM_COLLISION_BITS);
     size_t byte_index = start_bit / 8;
     size_t bit_index = start_bit % 8;
-    size_t start = get_global_id(0) * (NUM_BUCKETS / get_global_size(0));
-    size_t end = (get_global_id(0)+1) * (NUM_BUCKETS / get_global_size(0));
 
   __global bucket_t* src_buckets = buckets + (step_index-1)*NUM_BUCKETS;
   __global bucket_t* dst_buckets = buckets + step_index*NUM_BUCKETS;
-  for(uint32_t current_bucket_index = start; current_bucket_index < end; ++current_bucket_index) {
-    __global bucket_t* bucket = src_buckets+current_bucket_index;
-    //bucket->size = bucket->size < 13 ? bucket->size : 13;
+  __global bucket_t* bucket = src_buckets+get_global_id(0);
+  //bucket->size = bucket->size < 13 ? bucket->size : 13;
 
-    for(size_t a = 0; a < bucket->size; ++a) {
-        element_t base = bucket->data[a];
+  for(size_t a = 0; a < bucket->size; ++a) {
+      element_t base = bucket->data[a];
 
-        __global uint8_t* base_digest = (__global uint8_t*)src_digests[base.digest_index];
-        uint32_t base_collision_bits = mask_collision_bits(base_digest + byte_index, bit_index);
-        for(size_t b = a+1; b < bucket->size; ++b) {
-            element_t el = bucket->data[b];
-            __global uint8_t* el_digest = (__global uint8_t*)src_digests[el.digest_index];
-            uint32_t new_index = base_collision_bits ^ mask_collision_bits(el_digest + byte_index, bit_index);
-            if(new_index == 0) continue;
+      __global uint8_t* base_digest = (__global uint8_t*)src_digests[base.digest_index];
+      uint32_t base_collision_bits = mask_collision_bits(base_digest + byte_index, bit_index);
+      for(size_t b = a+1; b < bucket->size; ++b) {
+          element_t el = bucket->data[b];
+          __global uint8_t* el_digest = (__global uint8_t*)src_digests[el.digest_index];
+          uint32_t new_index = base_collision_bits ^ mask_collision_bits(el_digest + byte_index, bit_index);
+          if(new_index == 0) continue;
 
-            __global element_t* new_el = dst_buckets[new_index].data + atomic_add(&dst_buckets[new_index].size, 1);
-            set_element_parent_bucket_data(new_el, current_bucket_index, a, b);
-            new_el->digest_index = atomic_add(new_digest_index, 1);
-            //for(uint32_t h = 0; h < 2; h++){
-            //    new_el->digest_index = (get_global_id(0) * 2) + h;
-            //}
+          __global element_t* new_el = dst_buckets[new_index].data + atomic_add(&dst_buckets[new_index].size, 1);
+          set_element_parent_bucket_data(new_el, get_global_id(0), a, b);
+          new_el->digest_index = atomic_add(new_digest_index, 1);
 
-            xor_elements((__global uint8_t*)(dst_digests + new_el->digest_index), base_digest, el_digest);
-        }
-    }
-    bucket->size = 0;
+          xor_elements((__global uint8_t*)(dst_digests + new_el->digest_index), base_digest, el_digest);
+      }
   }
+  bucket->size = 0;
 }
 
 
-void decompress_indices(uint32_t* dst_uncompressed_indices, __global bucket_t* buckets, __global element_t* old_src) {
-    element_t elements[EQUIHASH_K][NUM_INDICES];
-    elements[0][0] = *old_src;
+void decompress_indices(uint32_t* dst_uncompressed_indices, __global bucket_t* buckets, __global element_t* old_src, __global element_t* elements) {
+
+    //element_t elements[EQUIHASH_K][NUM_INDICES];
+    //element_t elements[EQUIHASH_K][NUM_INDICES/2];
+    //elements[0][0] = *old_src;
+    elements[0] = *old_src;
 
     for(size_t i = 0; i < EQUIHASH_K-1; ++i) {
         for(size_t j = 0; j < (1 << i); ++j) {
-            element_t* src = elements[i] + j;
+            __global element_t* src = elements+ i*NUM_INDICES + j;
+            //element_t* src = elements[i] + j;
             uint32_t parent_bucket_index;
             uint8_t a;
             uint8_t b;
             get_element_parent_bucket_data(src, &parent_bucket_index, &a, &b);
 
             __global bucket_t* parent_bucket = buckets + ((EQUIHASH_K-2-i) * NUM_BUCKETS) + parent_bucket_index;
-            elements[i+1][2*j] = parent_bucket->data[a];
-            elements[i+1][2*j+1] = parent_bucket->data[b];
+            elements[(i+1)*NUM_INDICES + 2*j] = parent_bucket->data[a];
+            elements[(i+1)*NUM_INDICES + 2*j+1]= parent_bucket->data[b];
+            //elements[i+1][2*j] = parent_bucket->data[a];
+            //elements[i+1][2*j+1] = parent_bucket->data[b];
         }
     }
 
     for(size_t j = 0; j < NUM_INDICES/2; ++j) {
-        element_t* src = elements[EQUIHASH_K-1] + j;
+        //element_t* src = elements[EQUIHASH_K-1] + j;
+        __global element_t* src = elements + (EQUIHASH_K-1)*NUM_INDICES + j;
         uint32_t parent_bucket_index;
         uint8_t a;
         uint8_t b;
@@ -691,7 +682,7 @@ void decompress_indices(uint32_t* dst_uncompressed_indices, __global bucket_t* b
     }
 }
 
-__kernel void produce_solutions(__global uint32_t* dst_solutions, __global volatile uint32_t* n_solutions, __global bucket_t* buckets, __global digest_t* src_digests, __constant blake2b_state* digest) {
+__kernel void produce_solutions(__global uint32_t* dst_solutions, __global volatile uint32_t* n_solutions, __global bucket_t* buckets, __global digest_t* src_digests, __constant blake2b_state* digest, __global element_t* elements) {
     size_t start_bit = (EQUIHASH_K*NUM_COLLISION_BITS);
     size_t byte_index = start_bit / 8;
     size_t bit_index = start_bit % 8;
@@ -699,8 +690,14 @@ __kernel void produce_solutions(__global uint32_t* dst_solutions, __global volat
     size_t start = get_global_id(0) * (NUM_BUCKETS / get_global_size(0));
     size_t end = (get_global_id(0)+1) * (NUM_BUCKETS / get_global_size(0));
 
+
     for(size_t i = start; i < end; ++i) {
         __global bucket_t* bucket = src_buckets + i;
+
+        // break out of checking this bucket if 1 element, this cant be a solution
+        //if (bucket->size == 1) {
+        //    break;
+        //}
         int has_dupe = 0;
         for(size_t a = 0; a < bucket->size && !has_dupe; ++a) {
             __global element_t* base = bucket->data + a;
@@ -717,13 +714,11 @@ __kernel void produce_solutions(__global uint32_t* dst_solutions, __global volat
                         //}
                     }
 
-
                     uint32_t uncompressed_indices[NUM_INDICES];
-                    decompress_indices(uncompressed_indices, buckets, base);
-                    decompress_indices(uncompressed_indices + NUM_INDICES/2, buckets, el);
+                    decompress_indices(uncompressed_indices, buckets, base, elements + EQUIHASH_K*NUM_INDICES/2*get_global_id(0));
+                    decompress_indices(uncompressed_indices + NUM_INDICES/2, buckets, el, elements + EQUIHASH_K*NUM_INDICES/2*get_global_id(0));
 
                     for(size_t k = 0; k < NUM_INDICES && !has_dupe; ++k) {
-                        //printf("%u ", uncompressed_indices[k]);
                         for(size_t o = k+1; o < NUM_INDICES && !has_dupe; ++o) {
                             if(uncompressed_indices[k] == uncompressed_indices[o]) {
                                 has_dupe = 1;
@@ -731,7 +726,6 @@ __kernel void produce_solutions(__global uint32_t* dst_solutions, __global volat
                         }
                     }
                     //has_dupe = 1;
-                    //printf("\n\n");
                     if(!has_dupe) {
                         //atomic_add(n_solutions, 1);
                         memcpy_step0(dst_solutions + atomic_add(n_solutions, 1)*NUM_INDICES, uncompressed_indices, NUM_INDICES*sizeof(uint32_t));
