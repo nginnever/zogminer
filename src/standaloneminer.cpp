@@ -109,6 +109,11 @@ void test_mine(int n, int k, uint32_t d, GPUConfig conf)
 	if(conf.useGPU)
     	solver = new GPUSolver(conf.selGPU);
 
+	uint64_t nn= 0;
+	//TODO Free
+	uint8_t * header = (uint8_t *) calloc(128, sizeof(uint8_t));
+	
+
     while (true) {
         // Hash state
         crypto_generichash_blake2b_state state;
@@ -118,7 +123,9 @@ void test_mine(int n, int k, uint32_t d, GPUConfig conf)
         CEquihashInput I{pblock};
         CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
         ss << I;
-
+		
+		std::cout << "ss size: "<< ss.size() << std::endl;
+		memcpy(header, &ss[0], ss.size());
         // H(I||...
         crypto_generichash_blake2b_update(&state, (unsigned char*)&ss[0], ss.size());
 
@@ -133,9 +140,12 @@ void test_mine(int n, int k, uint32_t d, GPUConfig conf)
                                               pblock.nNonce.begin(),
                                               pblock.nNonce.size());
 
+			//std::cout << "nonce size: "<< sizeof(uint256) << " " << sizeof(uint64_t )  << std::endl;
+
             // (x_1, x_2, ...) = A(I, V, n, k)
             LogPrint("pow", "Running Equihash solver with nNonce = %s\n",
                      pblock.nNonce.ToString());
+			
 
             std::function<bool(std::vector<unsigned char>)> validBlock =
                     [&pblock, &hashTarget, &nStart, &start_cycles]
@@ -173,7 +183,7 @@ void test_mine(int n, int k, uint32_t d, GPUConfig conf)
 				if(!conf.useGPU)
                 	foundBlock = EhOptimisedSolve(n, k, curr_state, validBlock, cancelled);
 				else
-					foundBlock = solver->run(n, k, curr_state, validBlock, cancelledGPU);
+					foundBlock = solver->run(n, k, header, ZCASH_BLOCK_HEADER_LEN, nn++, validBlock, cancelledGPU);
                 uint64_t solve_end = rdtsc();
                 LogPrint("cycles", "Solver took %2.2f Mcycles\n\n",
                          (double)(solve_end - solve_start) / (1UL << 20));

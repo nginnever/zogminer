@@ -25,7 +25,7 @@
 
 #include "gpusolver.h"
 
-#define DEBUG
+//#define DEBUG
 
 GPUSolver::GPUSolver() {
 
@@ -48,9 +48,9 @@ GPUSolver::GPUSolver() {
 
 	miner = new cl_zogminer();
 
-	indices = (uint32_t *) malloc(20*PROOFSIZE*sizeof(uint32_t));
+	indices = (sols_t *) malloc(sizeof(sols_t));
 	if(indices == NULL)
-		std::cout << "Error allocating indices array!" << std::endl; 
+		std::cout << "Error allocating indices array!" << std::endl;
 
 	/* Checks each device for memory requirements and sets local/global sizes
 	TODO: Implement device logic for equihash kernel
@@ -69,7 +69,8 @@ GPUSolver::GPUSolver() {
 	@params: unsigned _deviceId
 	@params: string& _kernel - The name of the kernel for dev purposes
 	*/
-	std::vector<std::string> kernels {"initial_bucket_hashing", "bucket_collide_and_hash", "produce_solutions"};
+	std::vector<std::string> kernels {"kernel_init_ht", "kernel_round0", "kernel_round1", "kernel_round2","kernel_round3", "kernel_round4", "kernel_round5", "kernel_round6", "kernel_round7", "kernel_round8", "kernel_sols"};
+
 	if(GPU)
 		initOK = miner->init(0, 0, kernels);
 
@@ -96,9 +97,9 @@ GPUSolver::GPUSolver(int64_t selGPU) {
 
 	miner = new cl_zogminer();
 
-	indices = (uint32_t *) malloc(20*PROOFSIZE*sizeof(uint32_t));
+	indices = (sols_t *) malloc(sizeof(sols_t));
 	if(indices == NULL)
-		std::cout << "Error allocating indices array!" << std::endl; 
+		std::cout << "Error allocating indices array!" << std::endl;
 
 	/* Checks each device for memory requirements and sets local/global sizes
 	TODO: Implement device logic for equihash kernel
@@ -117,7 +118,7 @@ GPUSolver::GPUSolver(int64_t selGPU) {
 	@params: unsigned _deviceId
 	@params: string& _kernel - The name of the kernel for dev purposes
 	*/
-	std::vector<std::string> kernels {"initial_bucket_hashing", "bucket_collide_and_hash", "produce_solutions"};
+	std::vector<std::string> kernels {"kernel_init_ht", "kernel_round0", "kernel_round1", "kernel_round2","kernel_round3", "kernel_round4", "kernel_round5", "kernel_round6", "kernel_round7", "kernel_round8", "kernel_sols"};
 	if(GPU)
 		initOK = miner->init(0, selGPU, kernels);
 
@@ -135,19 +136,19 @@ GPUSolver::~GPUSolver() {
 
 }
 
-bool GPUSolver::run(unsigned int n, unsigned int k, const eh_HashState& base_state,
+bool GPUSolver::run(unsigned int n, unsigned int k, uint8_t *header, size_t header_len, uint64_t nonce,
 		            const std::function<bool(std::vector<unsigned char>)> validBlock,
 				const std::function<bool(GPUSolverCancelCheck)> cancelled) {
 
     if (n == 200 && k == 9) {
-        return GPUSolve200_9(base_state, validBlock, cancelled);
+        return GPUSolve200_9(header, header_len, nonce, validBlock, cancelled);
     } else {
         throw std::invalid_argument("Unsupported Equihash parameters");
     }
 
 }
 
-bool GPUSolver::GPUSolve200_9(const eh_HashState& base_state,
+bool GPUSolver::GPUSolve200_9(uint8_t *header, size_t header_len, uint64_t nonce,
                  	const std::function<bool(std::vector<unsigned char>)> validBlock,
 			const std::function<bool(GPUSolverCancelCheck)> cancelled) {
 
@@ -159,7 +160,7 @@ bool GPUSolver::GPUSolve200_9(const eh_HashState& base_state,
 	if(GPU && initOK) {
         auto t = std::chrono::high_resolution_clock::now();
 
-    	miner->run(base_state, indices, &n_sol);
+    	miner->run(header, header_len, nonce, indices, &n_sol);
 
 		auto d = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t);
 		auto milis = std::chrono::duration_cast<std::chrono::milliseconds>(d).count();
@@ -174,14 +175,20 @@ bool GPUSolver::GPUSolve200_9(const eh_HashState& base_state,
 		
 		if(!(counter % 10))
 			std::cout << "Kernel run took " << milis << " ms. (" << avg << " H/s)" << std::endl;
-
-		size_t checkedSols = 0;
-        for (size_t s = 0; s < n_sol; ++s) {
-        	++checkedSols;
+		std::cout << "Solutions: " << n_sol << std::endl;
+		size_t checkedSols = n_sol;
+		size_t s = 0;
+        while (checkedSols) {
+			++s;
+			if(indices->valid[s-1])
+        		--checkedSols;
+			else 
+				continue;
             //std::cout << "Checking solution " << checkedSols << std::endl;
             std::vector<eh_index> index_vector(PROOFSIZE);
             for (size_t i = 0; i < PROOFSIZE; i++) {
-            	index_vector[i] = indices[s * PROOFSIZE + i];
+				 //std::cout << s << "] ["<< " " << i << std::endl;
+            	index_vector[i] = indices->values[s-1][i];
             }
             std::vector<unsigned char> sol_char = GetMinimalFromIndices(index_vector, DIGITBITS);
 #ifdef DEBUG
@@ -203,6 +210,8 @@ bool GPUSolver::GPUSolve200_9(const eh_HashState& base_state,
               	  return true;
             }
         }
+
+		//free(indices);
 
 	}
 
