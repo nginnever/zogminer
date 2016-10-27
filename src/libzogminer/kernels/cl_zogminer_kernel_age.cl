@@ -568,7 +568,6 @@ uint32_t mask_collision_bits(__global uint8_t* data, size_t bit_index) {
     return n;
 }
 
-
 uint32_t mask_collision_bits_step0(uint8_t* data, size_t bit_index) {
     uint32_t n = ((*data << (bit_index)) & 0xff) << 12;
     n |= ((*(++data)) << (bit_index+4));
@@ -614,6 +613,7 @@ __kernel void initial_bucket_hashing(__global bucket_t* dst_buckets, __global di
      }
 }
 
+
 __kernel void bucket_collide_and_hash(__global digest_t* dst_digests, __global digest_t* src_digests, __global bucket_t* buckets, uint32_t step_index, __global volatile uint32_t* new_digest_index) {
     size_t start_bit = (step_index*NUM_COLLISION_BITS);
     size_t byte_index = start_bit / 8;
@@ -625,21 +625,33 @@ __kernel void bucket_collide_and_hash(__global digest_t* dst_digests, __global d
   //bucket->size = bucket->size < 13 ? bucket->size : 13;
 
   for(size_t a = 0; a < bucket->size; ++a) {
+      uint32_t a_parent_bucket_index;
+      uint8_t a_1;
+      uint8_t b_1;
       element_t base = bucket->data[a];
-
+      get_element_parent_bucket_data(&base, &a_parent_bucket_index, &a_1, &b_1);
       __global uint8_t* base_digest = (__global uint8_t*)src_digests[base.digest_index];
       uint32_t base_collision_bits = mask_collision_bits(base_digest + byte_index, bit_index);
       for(size_t b = a+1; b < bucket->size; ++b) {
-          element_t el = bucket->data[b];
-          __global uint8_t* el_digest = (__global uint8_t*)src_digests[el.digest_index];
-          uint32_t new_index = base_collision_bits ^ mask_collision_bits(el_digest + byte_index, bit_index);
-          if(new_index == 0) continue;
+        uint8_t a_2;
+        uint8_t b_2;
+        uint32_t b_parent_bucket_index;
+        element_t el = bucket->data[b];
+        get_element_parent_bucket_data(&el, &b_parent_bucket_index, &a_2, &b_2);
+        if (a_parent_bucket_index == b_parent_bucket_index){
+            if (a_1 == b_2 || a_1 == b_2 || b_1 == a_1 || b_1 == b_2)
+            continue;
+        }
 
-          __global element_t* new_el = dst_buckets[new_index].data + atomic_add(&dst_buckets[new_index].size, 1);
-          set_element_parent_bucket_data(new_el, get_global_id(0), a, b);
-          new_el->digest_index = atomic_add(new_digest_index, 1);
+        __global uint8_t* el_digest = (__global uint8_t*)src_digests[el.digest_index];
+        uint32_t new_index = base_collision_bits ^ mask_collision_bits(el_digest + byte_index, bit_index);
+        if(new_index == 0) continue;
 
-          xor_elements((__global uint8_t*)(dst_digests + new_el->digest_index), base_digest, el_digest);
+        __global element_t* new_el = dst_buckets[new_index].data + atomic_add(&dst_buckets[new_index].size, 1);
+        set_element_parent_bucket_data(new_el, get_global_id(0), a, b);
+        new_el->digest_index = atomic_add(new_digest_index, 1);
+
+        xor_elements((__global uint8_t*)(dst_digests + new_el->digest_index), base_digest, el_digest);
       }
   }
   bucket->size = 0;
