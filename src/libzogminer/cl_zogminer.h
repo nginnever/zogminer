@@ -61,7 +61,7 @@ typedef struct dst_local_bucket {
 } dst_local_bucket_t;
 
 
-typedef uint32_t eh_index;
+//typedef uint32_t eh_index;
 
 class cl_zogminer
 {
@@ -109,7 +109,7 @@ private:
   static const unsigned int z_n = 200;
   static const unsigned int z_k = 9;
   static const size_t z_collision_bit_length = z_n / (z_k + 1);
-  static const eh_index z_N = 1 << (z_collision_bit_length + 1);
+  //static const eh_index z_N = 1 << (z_collision_bit_length + 1);
 
 	static std::vector<cl::Device> getDevices(std::vector<cl::Platform> const& _platforms, unsigned _platformId);
 	static std::vector<cl::Platform> getPlatforms();

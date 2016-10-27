@@ -451,7 +451,7 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 
 		// execute it!
 		// Here we assume an 1-Dimensional problem split into local worksizes
-		m_queue.enqueueNDRangeKernel(m_zogKernels[0], cl::NullRange, cl::NDRange(NUM_BUCKETS*32), cl::NDRange(32));
+		m_queue.enqueueNDRangeKernel(m_zogKernels[0], cl::NullRange, cl::NDRange(1<<20), cl::NDRange(32));
 
 		m_queue.finish();
 
@@ -461,20 +461,18 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 
 			m_queue.enqueueFillBuffer(m_new_digest_index, &zero, 1, 0, sizeof(uint32_t), 0);
 
-			m_queue.finish();
+			//m_queue.finish();
 
 			//std::cout << "Step: " << i << "..." << std::endl;
 
 			m_zogKernels[1].setArg(0, m_digests[i % 2]);
 			m_zogKernels[1].setArg(1, m_digests[(i - 1)  % 2]);
 			m_zogKernels[1].setArg(2, m_buckets);
-			m_zogKernels[1].setArg(3, i);
+			m_zogKernels[1].setArg(3, &i);
 			m_zogKernels[1].setArg(4, m_new_digest_index);
 			m_zogKernels[1].setArg(5, m_src_local_buckets);
 
 			m_queue.enqueueNDRangeKernel(m_zogKernels[1], cl::NullRange, cl::NDRange(NUM_BUCKETS*32), cl::NDRange(32));
-
-			m_queue.enqueueReadBuffer(m_n_candidates, true, 0, sizeof(uint32_t), &n_candidates);
 
 			uint32_t n_digests = 0;
 			m_queue.enqueueReadBuffer(m_new_digest_index, true, 0, sizeof(uint32_t), &n_digests);
@@ -493,6 +491,7 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 		m_zogKernels[2].setArg(4, m_src_local_buckets);
 
 		m_queue.enqueueNDRangeKernel(m_zogKernels[2], cl::NullRange, cl::NDRange(NUM_BUCKETS*32), cl::NDRange(32));
+
 		m_queue.enqueueReadBuffer(m_n_candidates, true, 0, sizeof(uint32_t), &n_candidates);
 
 		m_queue.finish();
@@ -504,6 +503,7 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 	        bit_tmp >>= 1;
 	     }
 
+	    uint32_t n_solutions = 0;
 
 		m_queue.enqueueFillBuffer(m_n_solutions, &zero, 1, 0, sizeof(uint32_t), 0);
 		m_zogKernels[3].setArg(0, m_dst_solutions);
@@ -512,7 +512,7 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 		m_zogKernels[3].setArg(3, m_dst_candidates);
 		m_zogKernels[3].setArg(4, m_n_candidates);
 		m_zogKernels[3].setArg(5, m_elements);
-		m_queue.enqueueNDRangeKernel(m_zogKernels[3], cl::NullRange, cl::NDRange(1<<16), cl::NDRange(32));
+		m_queue.enqueueNDRangeKernel(m_zogKernels[3], cl::NullRange, cl::NDRange(1<<largest_bit), cl::NDRange(32));
 		//pending.push({ start_nonce, buf });
 		//buf = (buf + 1) % c_bufferCount;
 /*#if CL_VERSION_1_2 && 0
@@ -528,18 +528,18 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 		//solutions = (uint32_t*)m_queue.enqueueMapBuffer(m_n_solutions, true, CL_MAP_READ, 0, sizeof(uint32_t));
 
 		m_queue.enqueueReadBuffer(m_dst_solutions, true, 0, 10*NUM_INDICES*sizeof(uint32_t), dst_solutions);
-		m_queue.enqueueReadBuffer(m_n_solutions, true, 0, sizeof(uint32_t), &solutions);
+		m_queue.enqueueReadBuffer(m_n_solutions, true, 0, sizeof(uint32_t), &n_solutions);
 
 		m_queue.finish();
 		
-		for(i = 0; i < solutions; ++i) {
+		for(i = 0; i < n_solutions; ++i) {
         	normalize_indices(dst_solutions + (NUM_INDICES*i));
     	}
 
 		//std::cout << "Solutions: " << solutions << std::endl;
 
 		memcpy(sols, dst_solutions, 20*512*sizeof(uint32_t));
-		*n_sol = solutions;
+		*n_sol = n_solutions;
 
 		/*if (i % 10 == 0){
 			CL_LOG("Iteration: " << i << " Result: " <<  *results);
