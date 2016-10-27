@@ -31,8 +31,10 @@
 #define NUM_INDICES (1 << EQUIHASH_K)
 
 #define NUM_VALUES (1 << (NUM_COLLISION_BITS+1))
-#define NUM_BUCKETS (1 << NUM_COLLISION_BITS)
-#define DIGEST_SIZE 25
+#define NUM_BUCKETS (1 << NUM_COLLISION_BITS)/NUM_INDICES_PER_BUCKET
+#define DIGEST_SIZE 32
+#define NUM_INDICES_PER_BUCKET (1 << 10)
+#define NUM_STEP_INDICES (8*NUM_VALUES)
 
 typedef struct element element_t;
 typedef uint64_t digest_t[(DIGEST_SIZE + sizeof(uint64_t) - 1) / sizeof(uint64_t)];
@@ -40,13 +42,24 @@ typedef uint64_t digest_t[(DIGEST_SIZE + sizeof(uint64_t) - 1) / sizeof(uint64_t
 struct element {
     uint32_t digest_index;
     uint32_t parent_bucket_index;
+    uint32_t a;
+    uint32_t b;
 };
 
 
 typedef struct bucket {
-    unsigned size;
-    element_t data[18];
+    element_t data[NUM_INDICES_PER_BUCKET/8 * 28];
+    volatile unsigned size;
 } bucket_t;
+
+typedef struct src_local_bucket {
+    element_t data[18];
+} src_local_bucket_t;
+
+typedef struct dst_local_bucket {
+    element_t data[128];
+} dst_local_bucket_t;
+
 
 typedef uint32_t eh_index;
 
@@ -133,6 +146,12 @@ private:
 	cl::Buffer m_blake2b_digest;
 	cl::Buffer m_dst_solutions;
 	cl::Buffer m_n_solutions;
+	
+	cl::Buffer m_src_local_buckets;
+	cl::Buffer m_n_candidates;
+	cl::Buffer m_dst_candidates;
+	cl::Buffer m_elements;
+
 	const cl_int zero = 0;
 	uint32_t solutions;
 	uint32_t * dst_solutions;

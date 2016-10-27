@@ -69,7 +69,7 @@ GPUSolver::GPUSolver() {
 	@params: unsigned _deviceId
 	@params: string& _kernel - The name of the kernel for dev purposes
 	*/
-	std::vector<std::string> kernels {"initial_bucket_hashing", "bucket_collide_and_hash", "produce_solutions"};
+	std::vector<std::string> kernels {"initial_bucket_hashing", "bucket_collide_and_hash", "produce_candidates_kernel", "produce_solutions"};
 	if(GPU)
 		initOK = miner->init(0, 0, kernels);
 
@@ -117,7 +117,7 @@ GPUSolver::GPUSolver(int64_t selGPU) {
 	@params: unsigned _deviceId
 	@params: string& _kernel - The name of the kernel for dev purposes
 	*/
-	std::vector<std::string> kernels {"initial_bucket_hashing", "bucket_collide_and_hash", "produce_solutions"};
+	std::vector<std::string> kernels {"initial_bucket_hashing", "bucket_collide_and_hash", "produce_candidates_kernel", "produce_solutions"};
 	if(GPU)
 		initOK = miner->init(0, selGPU, kernels);
 

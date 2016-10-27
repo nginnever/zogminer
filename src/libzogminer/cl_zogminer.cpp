@@ -386,6 +386,14 @@ bool cl_zogminer::init(
 
 		m_n_solutions = cl::Buffer(m_context, CL_MEM_READ_WRITE, sizeof(uint32_t), NULL, NULL);
 
+		m_src_local_buckets = cl::Buffer(m_context, CL_MEM_READ_WRITE, NUM_BUCKETS * NUM_INDICES_PER_BUCKET * sizeof(src_local_bucket_t), NULL, NULL);
+
+		m_dst_candidates = cl::Buffer(m_context, CL_MEM_READ_WRITE, (1 << 16)*sizeof(element_t), NULL, NULL);
+
+		m_n_candidates = cl::Buffer(m_context, CL_MEM_READ_WRITE, sizeof(uint32_t), NULL, NULL);
+
+		m_elements = cl::Buffer(m_context, CL_MEM_READ_WRITE, sizeof(element_t)*EQUIHASH_K*NUM_INDICES/2*(1<<13), NULL, NULL);
+
 		m_queue.finish();
 
 	}
@@ -410,6 +418,10 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 		m_queue.enqueueFillBuffer(m_blake2b_digest, &zero, 1, 0, sizeof(crypto_generichash_blake2b_state), 0);
 		m_queue.enqueueFillBuffer(m_dst_solutions, &zero, 1, 0, 20*NUM_INDICES*sizeof(uint32_t), 0);
 		m_queue.enqueueFillBuffer(m_n_solutions, &zero, 1, 0, sizeof(uint32_t), 0);
+		m_queue.enqueueFillBuffer(m_src_local_buckets, &zero, 1, 0, NUM_BUCKETS * NUM_INDICES_PER_BUCKET * sizeof(src_local_bucket_t), 0);
+		m_queue.enqueueFillBuffer(m_dst_candidates, &zero, 1, 0, (1 << 16)*sizeof(element_t), 0);
+		m_queue.enqueueFillBuffer(m_n_candidates, &zero, 1, 0, sizeof(uint32_t), 0);
+		//m_queue.enqueueFillBuffer(m_elements, &zero, 1, 0, sizeof(uint32_t, 0);
 
 		m_queue.finish();
 
@@ -439,12 +451,13 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 
 		// execute it!
 		// Here we assume an 1-Dimensional problem split into local worksizes
-		m_queue.enqueueNDRangeKernel(m_zogKernels[0], cl::NullRange, cl::NDRange(1 << 20), cl::NullRange);
+		m_queue.enqueueNDRangeKernel(m_zogKernels[0], cl::NullRange, cl::NDRange(NUM_BUCKETS*32), cl::NDRange(32));
 
 		m_queue.finish();
 
 		uint32_t i = 1;
     	for(i = 1; i < EQUIHASH_K; ++i) {
+    		uint32_t n_candidates = 0;
 
 			m_queue.enqueueFillBuffer(m_new_digest_index, &zero, 1, 0, sizeof(uint32_t), 0);
 
@@ -457,29 +470,50 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 			m_zogKernels[1].setArg(2, m_buckets);
 			m_zogKernels[1].setArg(3, i);
 			m_zogKernels[1].setArg(4, m_new_digest_index);
+			m_zogKernels[1].setArg(5, m_src_local_buckets);
 
-			m_queue.enqueueNDRangeKernel(m_zogKernels[1], cl::NullRange, cl::NDRange(1 << 20), cl::NDRange(32));
+			m_queue.enqueueNDRangeKernel(m_zogKernels[1], cl::NullRange, cl::NDRange(NUM_BUCKETS*32), cl::NDRange(32));
+
+			m_queue.enqueueReadBuffer(m_n_candidates, true, 0, sizeof(uint32_t), &n_candidates);
+
+		uint32_t n_digests = 0;
+		m_queue.enqueueReadBuffer(m_new_digest_index, true, 0, sizeof(uint32_t), &n_digests);
 
 			m_queue.finish();
 
 		}
 
-		uint32_t n_solutions = 0;
+		uint32_t n_candidates = 0;
 
-		//TODO Is this really necessary?
-		//This is not necessary, working on removing it
-		m_queue.enqueueFillBuffer(m_n_solutions, &zero, 1, 0, sizeof(uint32_t), 0);
 
-		m_zogKernels[2].setArg(0, m_dst_solutions);
-		m_zogKernels[2].setArg(1, m_n_solutions);
+		m_zogKernels[2].setArg(0, m_dst_candidates);
+		m_zogKernels[2].setArg(0, m_n_candidates);
 		m_zogKernels[2].setArg(2, m_buckets);
 		m_zogKernels[2].setArg(3, m_digests[0]);
-		m_zogKernels[2].setArg(4, m_blake2b_digest);
+		m_zogKernels[2].setArg(4, m_src_local_buckets);
 
-		m_queue.enqueueNDRangeKernel(m_zogKernels[2], cl::NullRange, cl::NDRange(1 << 16), cl::NDRange(32));
+		m_queue.enqueueNDRangeKernel(m_zogKernels[2], cl::NullRange, cl::NDRange(NUM_BUCKETS*32), cl::NDRange(32));
+		m_queue.enqueueReadBuffer(m_n_candidates, true, 0, sizeof(uint32_t), &n_candidates);
+		    unsigned largest_bit = 0;
+		    uint32_t bit_tmp = n_candidates / 2;
+		    while(bit_tmp > 0) {
+		        largest_bit++;
+		        bit_tmp >>= 1;
+		     }
+
 
 		m_queue.finish();
 
+
+
+		m_queue.enqueueFillBuffer(m_n_solutions, &zero, 1, 0, sizeof(uint32_t), 0);
+		m_zogKernels[3].setArg(0, m_dst_solutions);
+		m_zogKernels[3].setArg(0, m_n_solutions);
+		m_zogKernels[3].setArg(2, m_buckets);
+		m_zogKernels[3].setArg(3, m_dst_candidates);
+		m_zogKernels[3].setArg(4, m_n_candidates);
+		m_zogKernels[3].setArg(5, m_elements);
+		m_queue.enqueueNDRangeKernel(m_zogKernels[3], cl::NullRange, cl::NDRange(1<<16), cl::NDRange(32));
 		//pending.push({ start_nonce, buf });
 		//buf = (buf + 1) % c_bufferCount;
 /*#if CL_VERSION_1_2 && 0

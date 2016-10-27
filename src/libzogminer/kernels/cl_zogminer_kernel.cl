@@ -543,7 +543,6 @@ typedef struct element {
     uint32_t parent_bucket_data;
     uint32_t a;
     uint32_t b;
-    //uint32_t parent_bucket_index;
 } element_t;
 
 typedef struct bucket {
@@ -568,6 +567,7 @@ void set_element_digest_index(__global element_t* dst, uint32_t digest_index) {
 }
 
 void set_element_parent_bucket_data(__global element_t* dst, uint32_t parent_bucket_index, uint32_t a, uint32_t b) {
+
     dst->parent_bucket_data = parent_bucket_index; //(parent_bucket_index << (31-NUM_BUCKET_INDEX_BITS)) | ((a & 0xf) << 4) | (b & 0xf);
     dst->a = a;
     dst->b = b;
@@ -576,13 +576,17 @@ void set_element_parent_bucket_data(__global element_t* dst, uint32_t parent_buc
     //dst->b_parent_bucket_sub_index = b;
 }
 
-void get_element_parent_bucket_data(element_t* src, uint32_t* parent_bucket_index, uint32_t* a, uint32_t* b) {
+void get_element_parent_bucket_data(__global element_t* src, uint32_t* parent_bucket_index, uint32_t* a, uint32_t* b) {
   /**parent_bucket_index = src->parent_bucket_data >> 8;
   *a = (src->parent_bucket_data >> 4) & 0xf;
   *b = (src->parent_bucket_data & 0xf);*/
   *parent_bucket_index = src->parent_bucket_data;
   *a = src->a;
   *b = src->b;
+  /*if(get_global_id(0) < 512) {
+    printf("%u %u %u\n", src->parent_bucket_data, src->a, src->b);
+    printf("%u %u %u\n", parent_bucket_index, a, b);
+  }*/
 }
 
 uint32_t mask_collision_bits(__global uint8_t* data, size_t bit_index) {
@@ -699,48 +703,18 @@ __kernel void bucket_collide_and_hash(__global digest_t* dst_digests, __global d
             new_index /= NUM_INDICES_PER_BUCKET;
 
             __global element_t* new_el = dst_buckets[new_index].data + atomic_add(&dst_buckets[new_index].size, 1);
-            set_element_parent_bucket_data(new_el, get_group_id(0), base.parent_bucket_data, el.parent_bucket_data);
+            //set_element_parent_bucket_data(new_el, get_group_id(0), base.parent_bucket_data, el.parent_bucket_data);
             new_el->digest_index = atomic_add(new_digest_index, 1);
+            new_el->parent_bucket_data = get_group_id(0);
+            new_el->a = base.parent_bucket_data;
+            new_el->b = el.parent_bucket_data;
             xor_elements((__global uint8_t*)(dst_digests + new_el->digest_index), base_digest, el_digest);
         }
     }
   }
 
-  bucket->size = 0;
+  //bucket->size = 0;
 }
-
-
-void decompress_indices(uint32_t* dst_uncompressed_indices, __global bucket_t* buckets, element_t* old_src) { //, __global element_t* elements) {
-    element_t elements[1024];
-    memset(elements, '\0', 1024*sizeof(element_t));
-    elements[0] = *old_src;
-
-    for(uint32_t i = 0; i < EQUIHASH_K-1; ++i) {
-        for(uint32_t j = 0; j < (1 << i); ++j) {
-            element_t* src = elements + i*NUM_INDICES + j;
-            uint32_t parent_bucket_index;
-            uint32_t a;
-            uint32_t b;
-            get_element_parent_bucket_data(src, &parent_bucket_index, &a, &b);
-            //printf("%u %u %u\n", parent_bucket_index, a, b);
-
-            __global bucket_t* parent_bucket = buckets + ((EQUIHASH_K-2-i) * NUM_BUCKETS) + parent_bucket_index;
-            elements[(i+1)*NUM_INDICES + 2*j] = parent_bucket->data[a];
-            elements[(i+1)*NUM_INDICES + 2*j+1] = parent_bucket->data[b];
-        }
-    }
-
-    for(size_t j = 0; j < NUM_INDICES/2; ++j) {
-        element_t* src = elements + (EQUIHASH_K-1)*NUM_INDICES + j;
-        uint32_t parent_bucket_index;
-        uint32_t a;
-        uint32_t b;
-        get_element_parent_bucket_data(src, &parent_bucket_index, &a, &b);
-        *dst_uncompressed_indices = parent_bucket_index;
-        dst_uncompressed_indices++;
-    }
-}
-
 
 /*
  instead check, who should we check. Then do the decompression
@@ -772,7 +746,7 @@ __kernel void produce_candidates(__global element_t* dst_candidates, __global vo
 
   for(size_t a = get_local_id(0); a < bucket->size; a += 32) {
     element_t el = bucket->data[a];
-    el.parent_bucket_data = a;
+    //el.parent_bucket_data = a;
     __global uint8_t* digest = (__global uint8_t*)src_digests[el.digest_index];
     uint32_t local_bucket_index = mask_collision_bits(digest + last_byte_index, last_bit_index) % NUM_INDICES_PER_BUCKET;
     (src_local_buckets + local_bucket_index)->data[atomic_add(src_local_bucket_sizes + local_bucket_index, 1)] = el;
@@ -785,6 +759,7 @@ __kernel void produce_candidates(__global element_t* dst_candidates, __global vo
 
     for(size_t a = 0; a < src_local_bucket_sizes[i]; ++a) {
       element_t base = src_local_bucket->data[a];
+      int has_found_solution_in_bucket = 0;
 
       __global uint8_t* base_digest = (__global uint8_t*)src_digests[base.digest_index];
       uint32_t base_collision_bits = mask_collision_bits(base_digest + byte_index, bit_index);
@@ -798,6 +773,11 @@ __kernel void produce_candidates(__global element_t* dst_candidates, __global vo
           unsigned candidate_index = atomic_add(n_candidates, 2);
           dst_candidates[candidate_index] = base;
           dst_candidates[candidate_index+1] = el;
+          has_found_solution_in_bucket = 1;
+        }
+
+        if(has_found_solution_in_bucket) {
+          break;
         }
       }
     }
@@ -805,10 +785,36 @@ __kernel void produce_candidates(__global element_t* dst_candidates, __global vo
 }
 
 
+void decompress_indices(uint32_t* dst_uncompressed_indices, __global bucket_t* buckets, element_t* old_src, __global element_t* elements) {
+    elements[0] = *old_src;
+
+    for(size_t i = 0; i < EQUIHASH_K-1; ++i) {
+        for(size_t j = 0; j < (1 << i); ++j) {
+            __global element_t* src = elements + i*NUM_INDICES + j;
+            uint32_t parent_bucket_index;
+            uint32_t a;
+            uint32_t b;
+            get_element_parent_bucket_data(src, &parent_bucket_index, &a, &b);
+
+            __global bucket_t* parent_bucket = buckets + ((EQUIHASH_K-2-i) * NUM_BUCKETS) + parent_bucket_index;
+            elements[(i+1)*NUM_INDICES + 2*j] = parent_bucket->data[a];
+            elements[(i+1)*NUM_INDICES + 2*j+1] = parent_bucket->data[b];
+        }
+    }
+
+    for(size_t j = 0; j < NUM_INDICES/2; ++j) {
+        __global element_t* src = elements + (EQUIHASH_K-1)*NUM_INDICES + j;
+        uint32_t parent_bucket_index;
+        uint32_t a;
+        uint32_t b;
+        get_element_parent_bucket_data(src, &parent_bucket_index, &a, &b);
+        *dst_uncompressed_indices = parent_bucket_index;
+        dst_uncompressed_indices++;
+    }
+}
+
 __kernel void produce_solutions(__global uint32_t* dst_solutions, __global volatile uint32_t* n_solutions, __global bucket_t* buckets, __global element_t* candidates, __global volatile uint32_t* n_candidates, __global element_t* elements) {
-  if(*n_candidates <= 2*get_global_id(0)) {
-    unsigned ttt = 2*get_global_id(0);
-    //printf("invalid %u < %u\n", *n_candidates, ttt);
+  if(2*get_global_id(0) >= *n_candidates) {
     return;
   }
 
@@ -816,17 +822,15 @@ __kernel void produce_solutions(__global uint32_t* dst_solutions, __global volat
   element_t base = candidates[2*get_global_id(0)];
   element_t el = candidates[2*get_global_id(0)+1];
   uint32_t uncompressed_indices[NUM_INDICES];
-  decompress_indices(uncompressed_indices, buckets, &base); //, elements + EQUIHASH_K*NUM_INDICES/2*get_global_id(0));
-  decompress_indices(uncompressed_indices + NUM_INDICES/2, buckets, &el); //, elements + EQUIHASH_K*NUM_INDICES/2*get_global_id(0));
+  decompress_indices(uncompressed_indices, buckets, &base, elements + EQUIHASH_K*NUM_INDICES/2*get_global_id(0));
+  decompress_indices(uncompressed_indices + NUM_INDICES/2, buckets, &el, elements + EQUIHASH_K*NUM_INDICES/2*get_global_id(0));
 
   for(size_t k = 0; k < NUM_INDICES; ++k) {
-      //printf("%u ", uncompressed_indices[k]);
       for(size_t o = k+1; o < NUM_INDICES && !has_dupe; ++o) {
           if(uncompressed_indices[k] == uncompressed_indices[o]) {
               has_dupe = 1;
           }
       }
-      //printf("\n");
   }
 
   if(!has_dupe) {
