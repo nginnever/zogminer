@@ -23,7 +23,7 @@
 #undef min
 #undef max
 
-//#define DEBUG
+#define DEBUG
 
 using namespace std;
 
@@ -413,7 +413,7 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 
 		m_queue.enqueueFillBuffer(m_digests[0], &zero, 1, 0, (NUM_VALUES + NUM_VALUES / 2) * sizeof(digest_t), 0);
 		m_queue.enqueueFillBuffer(m_digests[1], &zero, 1, 0, (NUM_VALUES + NUM_VALUES / 2) * sizeof(digest_t), 0);
-		m_queue.enqueueFillBuffer(m_buckets, &zero, 1, 0, NUM_BUCKETS * sizeof(bucket_t) * EQUIHASH_K, 0);
+		//m_queue.enqueueFillBuffer(m_buckets, &zero, 1, 0, NUM_BUCKETS * sizeof(bucket_t) * EQUIHASH_K, 0);
 		m_queue.enqueueFillBuffer(m_new_digest_index, &zero, 1, 0, sizeof(uint32_t), 0);
 		m_queue.enqueueFillBuffer(m_blake2b_digest, &zero, 1, 0, sizeof(crypto_generichash_blake2b_state), 0);
 		m_queue.enqueueFillBuffer(m_dst_solutions, &zero, 1, 0, 20*NUM_INDICES*sizeof(uint32_t), 0);
@@ -421,7 +421,7 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 		m_queue.enqueueFillBuffer(m_src_local_buckets, &zero, 1, 0, NUM_BUCKETS * NUM_INDICES_PER_BUCKET * sizeof(src_local_bucket_t), 0);
 		m_queue.enqueueFillBuffer(m_dst_candidates, &zero, 1, 0, (1 << 16)*sizeof(element_t), 0);
 		m_queue.enqueueFillBuffer(m_n_candidates, &zero, 1, 0, sizeof(uint32_t), 0);
-		//m_queue.enqueueFillBuffer(m_elements, &zero, 1, 0, sizeof(uint32_t, 0);
+		m_queue.enqueueFillBuffer(m_elements, &zero, 1, 0, sizeof(uint32_t), 0);
 
 		m_queue.finish();
 
@@ -487,19 +487,20 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 
 
 		m_zogKernels[2].setArg(0, m_dst_candidates);
-		m_zogKernels[2].setArg(0, m_n_candidates);
+		m_zogKernels[2].setArg(1, m_n_candidates);
 		m_zogKernels[2].setArg(2, m_buckets);
 		m_zogKernels[2].setArg(3, m_digests[0]);
 		m_zogKernels[2].setArg(4, m_src_local_buckets);
 
 		m_queue.enqueueNDRangeKernel(m_zogKernels[2], cl::NullRange, cl::NDRange(NUM_BUCKETS*32), cl::NDRange(32));
 		m_queue.enqueueReadBuffer(m_n_candidates, true, 0, sizeof(uint32_t), &n_candidates);
-		    unsigned largest_bit = 0;
-		    uint32_t bit_tmp = n_candidates / 2;
-		    while(bit_tmp > 0) {
-		        largest_bit++;
-		        bit_tmp >>= 1;
-		     }
+		
+	    unsigned largest_bit = 0;
+	    uint32_t bit_tmp = n_candidates / 2;
+	    while(bit_tmp > 0) {
+	        largest_bit++;
+	        bit_tmp >>= 1;
+	     }
 
 
 		m_queue.finish();
@@ -508,7 +509,7 @@ void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * so
 
 		m_queue.enqueueFillBuffer(m_n_solutions, &zero, 1, 0, sizeof(uint32_t), 0);
 		m_zogKernels[3].setArg(0, m_dst_solutions);
-		m_zogKernels[3].setArg(0, m_n_solutions);
+		m_zogKernels[3].setArg(1, m_n_solutions);
 		m_zogKernels[3].setArg(2, m_buckets);
 		m_zogKernels[3].setArg(3, m_dst_candidates);
 		m_zogKernels[3].setArg(4, m_n_candidates);
