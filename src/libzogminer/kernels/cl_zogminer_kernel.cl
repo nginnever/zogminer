@@ -685,6 +685,7 @@ initial_bucket_hashing(__global bucket_t * dst_buckets,
   memset(new_digest, '\0', 2 * DIGEST_SIZE);
   size_t start = get_global_id(0);
   uint64_t tmp = *new_digest_index;
+  if(get_local_id(0) == 123) printf("weee");
 
   blake2b_state current_digest = *digest;
   blake2b_update(&current_digest, (uint8_t *) & start, sizeof(uint32_t));
