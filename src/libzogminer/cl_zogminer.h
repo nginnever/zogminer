@@ -24,6 +24,14 @@
 
 #include "sodium.h"
 
+typedef uint8_t		uchar;
+typedef uint32_t	uint;
+typedef uint64_t	ulong;
+
+#include "param.h"
+#include "blake.h"
+#include <cassert>
+
 #define EQUIHASH_N 200
 #define EQUIHASH_K 9
 
@@ -47,6 +55,12 @@ typedef struct bucket {
     unsigned size;
     element_t data[18];
 } bucket_t;
+
+typedef struct  debug_s
+{
+    uint32_t    dropped_coll;
+    uint32_t    dropped_stor;
+}               debug_t;
 
 typedef uint32_t eh_index;
 
@@ -80,7 +94,7 @@ public:
 		std::vector<std::string> _kernels
 	);
 
-	void run(crypto_generichash_blake2b_state base_state, uint32_t * sols, uint32_t * n_sol);
+	void run(uint8_t *header, size_t header_len, uint64_t nonce, sols_t * indices, uint32_t * n_sol, uint64_t * ptr);
 
 	void finish();
 
@@ -124,15 +138,92 @@ private:
 		    }
 		}
 	}
+	char *s_hexdump(const void *_a, uint32_t a_len)
+	{
+		const uint8_t	*a = (const uint8_t	*) _a;
+		static char		buf[1024];
+		uint32_t		i;
+		for (i = 0; i < a_len && i + 2 < sizeof (buf); i++)
+		    sprintf(buf + i * 2, "%02x", a[i]);
+		buf[i * 2] = 0;
+		return buf;
+	}
+	size_t select_work_size_blake(void)
+	{
+		size_t              work_size =
+		    64 * /* thread per wavefront */
+		    BLAKE_WPS * /* wavefront per simd */
+		    4 * /* simd per compute unit */
+		    36;
+		// Make the work group size a multiple of the nr of wavefronts, while
+		// dividing the number of inputs. This results in the worksize being a
+		// power of 2.
+		while (NR_INPUTS % work_size)
+		    work_size += 64;
+		//debug("Blake: work size %zd\n", work_size);
+		return work_size;
+	}
+	void sort_pair(uint32_t *a, uint32_t len)
+	{
+		uint32_t    *b = a + len;
+		uint32_t     tmp, need_sorting = 0;
+		for (uint32_t i = 0; i < len; i++)
+		if (need_sorting || a[i] > b[i])
+		  {
+			need_sorting = 1;
+			tmp = a[i];
+			a[i] = b[i];
+			b[i] = tmp;
+		  }
+		else if (a[i] < b[i])
+			return ;
+	}
+
+	uint32_t verify_sol(sols_t *sols, unsigned sol_i) {
+		uint32_t	*inputs = sols->values[sol_i];
+		uint32_t	seen_len = (1 << (PREFIX + 1)) / 8;
+		uint8_t	seen[seen_len];
+		uint32_t	i;
+		uint8_t	tmp;
+		// look for duplicate inputs
+		memset(seen, 0, seen_len);
+		for (i = 0; i < (1 << PARAM_K); i++)
+		  {
+		tmp = seen[inputs[i] / 8];
+		seen[inputs[i] / 8] |= 1 << (inputs[i] & 7);
+		if (tmp == seen[inputs[i] / 8])
+		  {
+			// at least one input value is a duplicate
+			sols->valid[sol_i] = 0;
+			return 0;
+		  }
+		  }
+		// the valid flag is already set by the GPU, but set it again because
+		// I plan to change the GPU code to not set it
+		sols->valid[sol_i] = 1;
+		// sort the pairs in place
+		for (uint32_t level = 0; level < PARAM_K; level++)
+		for (i = 0; i < (1 << PARAM_K); i += (2 << level))
+			sort_pair(&inputs[i], 1 << level);
+		return 1;
+	}
 	cl::Context m_context;
 	cl::CommandQueue m_queue;
 	std::vector<cl::Kernel> m_zogKernels;
-	cl::Buffer m_digests[2];
+	/*cl::Buffer m_digests[2];
 	cl::Buffer m_buckets;
 	cl::Buffer m_new_digest_index;
 	cl::Buffer m_blake2b_digest;
 	cl::Buffer m_dst_solutions;
-	cl::Buffer m_n_solutions;
+	cl::Buffer m_n_solutions;*/
+	cl::Buffer buf_ht[2];
+	cl::Buffer buf_sols;
+	cl::Buffer buf_dbg;
+
+	uint64_t		nonce;
+    uint64_t		total;
+	size_t dbg_size = 1 * sizeof (debug_t);	
+
 	const cl_int zero = 0;
 	uint32_t solutions;
 	uint32_t * dst_solutions;

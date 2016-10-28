@@ -37,6 +37,9 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos, GPUConfig con
 	if(conf.useGPU)
     	solver = new GPUSolver(conf.selGPU);
 
+	//TODO Free
+	uint8_t * tmp_header = (uint8_t *) calloc(128, sizeof(uint8_t));
+
     miner->NewJob.connect(NewJob_t::slot_type(
         [&m_zmt, &header, &space, &offset, &inc, &target, &workReady, &cancelSolver]
         (const ZcashJob* job) mutable {
@@ -91,6 +94,8 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos, GPUConfig con
                 CEquihashInput I{header};
                 ss << I;
             }
+		
+			memcpy(tmp_header, &ss[0], ss.size());
 
             // H(I||...
             crypto_generichash_blake2b_update(&state, (unsigned char*)&ss[0], ss.size());
@@ -101,9 +106,9 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos, GPUConfig con
                 crypto_generichash_blake2b_state curr_state;
                 curr_state = state;
                 auto bNonce = ArithToUint256(nonce);
-                crypto_generichash_blake2b_update(&curr_state,
+                /*crypto_generichash_blake2b_update(&curr_state,
                                                   bNonce.begin(),
-                                                  bNonce.size());
+                                                  bNonce.size());*/
 
                 // (x_1, x_2, ...) = A(I, V, n, k)
                 LogPrint("pow", "Running Equihash solver with nNonce = %s\n",
@@ -148,7 +153,7 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos, GPUConfig con
 		                    break;
 		                }
 					} else {
-						if (solver->run(n, k, curr_state, validBlock, cancelledGPU)) {
+						if (solver->run(n, k, tmp_header, ZCASH_BLOCK_HEADER_LEN, bNonce.GetCheapHash(), validBlock, cancelledGPU, curr_state)) {
 		                    break;
 		                }
 					}

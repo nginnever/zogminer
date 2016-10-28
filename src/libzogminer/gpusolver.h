@@ -31,6 +31,10 @@
 #include "crypto/equihash.h"
 #include "cl_zogminer.h"
 
+//#include "param.h"
+//#include "blake.h"
+#include <cassert>
+
 #ifdef __APPLE__
 #include <OpenCL/opencl.h>
 #else
@@ -63,9 +67,10 @@ public:
 	GPUSolver();
 	GPUSolver(int64_t selGPU);
 	~GPUSolver();
-        bool run(unsigned int n, unsigned int k, const eh_HashState& base_state,
+        bool run(unsigned int n, unsigned int k, uint8_t *header, size_t header_len, uint64_t nonce,
 		            const std::function<bool(std::vector<unsigned char>)> validBlock,
-				const std::function<bool(GPUSolverCancelCheck)> cancelled);
+				const std::function<bool(GPUSolverCancelCheck)> cancelled,
+			crypto_generichash_blake2b_state base_state);
 
 private:
 	cl_zogminer * miner;
@@ -73,16 +78,17 @@ private:
 	bool initOK;
 	static const uint32_t PROOFSIZE = 1 << EK;
 	//TODO 20?
-	uint32_t * indices;
+	sols_t * indices;
 	uint32_t n_sol;
 	//Avg
 	uint32_t counter = 0;
 	float sum = 0.f;
 	float avg = 0.f;
 
-	bool GPUSolve200_9(const eh_HashState& base_state,
+	bool GPUSolve200_9(uint8_t *header, size_t header_len, uint64_t nonce,
 		         	const std::function<bool(std::vector<unsigned char>)> validBlock,
-				const std::function<bool(GPUSolverCancelCheck)> cancelled);
+				const std::function<bool(GPUSolverCancelCheck)> cancelled,
+			crypto_generichash_blake2b_state base_state);
 
 };
 

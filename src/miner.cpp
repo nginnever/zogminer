@@ -525,9 +525,9 @@ void static BitcoinMiner(CWallet *pwallet, GPUConfig conf)
                 // H(I||V||...
                 crypto_generichash_blake2b_state curr_state;
                 curr_state = state;
-                crypto_generichash_blake2b_update(&curr_state,
+                /*crypto_generichash_blake2b_update(&curr_state,
                                                   pblock->nNonce.begin(),
-                                                  pblock->nNonce.size());
+                                                  pblock->nNonce.size());*/
 
                 // (x_1, x_2, ...) = A(I, V, n, k)
                 LogPrint("pow", "Running Equihash solver with nNonce = %s\n",
@@ -576,7 +576,7 @@ void static BitcoinMiner(CWallet *pwallet, GPUConfig conf)
 		                    break;
 		                }
 					} else {
-						if (solver->run(n, k, curr_state, validBlock, cancelledGPU)) {
+						if (solver->run(n, k, (uint8_t *)&ss[0], ZCASH_BLOCK_HEADER_LEN, pblock->nNonce.GetCheapHash(), validBlock, cancelledGPU, curr_state)) {
 		                    break;
 		                }
 					}

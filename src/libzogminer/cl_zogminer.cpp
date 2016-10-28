@@ -373,18 +373,12 @@ bool cl_zogminer::init(
 		}
 
 		// TODO create buffer kernel inputs (private variables)
-	  	m_digests[0] = cl::Buffer(m_context, CL_MEM_READ_WRITE, (NUM_VALUES + NUM_VALUES / 2) * sizeof(digest_t), NULL, NULL);
-		m_digests[1] = cl::Buffer(m_context, CL_MEM_READ_WRITE, (NUM_VALUES + NUM_VALUES / 2) * sizeof(digest_t), NULL, NULL);
-
-		m_buckets = cl::Buffer(m_context, CL_MEM_READ_WRITE, NUM_BUCKETS * sizeof(bucket_t) * EQUIHASH_K, NULL, NULL);
-
-		m_new_digest_index = cl::Buffer(m_context, CL_MEM_READ_WRITE, sizeof(uint32_t), NULL, NULL);
-
-		m_blake2b_digest = cl::Buffer(m_context, CL_MEM_READ_WRITE, sizeof(crypto_generichash_blake2b_state), NULL, NULL);
-
-		m_dst_solutions = cl::Buffer(m_context, CL_MEM_READ_WRITE, 20*NUM_INDICES*sizeof(uint32_t), NULL, NULL);
-
-		m_n_solutions = cl::Buffer(m_context, CL_MEM_READ_WRITE, sizeof(uint32_t), NULL, NULL);
+	  	buf_dbg = cl::Buffer(m_context, CL_MEM_READ_WRITE, dbg_size, NULL, NULL);
+		//TODO Dangger
+		m_queue.enqueueFillBuffer(buf_dbg, &zero, 1, 0, dbg_size, 0);
+		buf_ht[0] = cl::Buffer(m_context, CL_MEM_READ_WRITE, HT_SIZE, NULL, NULL);
+		buf_ht[1] = cl::Buffer(m_context, CL_MEM_READ_WRITE, HT_SIZE, NULL, NULL);
+		buf_sols = cl::Buffer(m_context, CL_MEM_READ_WRITE, sizeof (sols_t), NULL, NULL);
 
 		m_queue.finish();
 
@@ -398,164 +392,87 @@ bool cl_zogminer::init(
 }
 
 
-void cl_zogminer::run(crypto_generichash_blake2b_state base_state, uint32_t * sols, uint32_t * n_sol)
+void cl_zogminer::run(uint8_t *header, size_t header_len, uint64_t nonce, sols_t * indices, uint32_t * n_sol, uint64_t * ptr)
 {
 	try
 	{
 
-		m_queue.enqueueFillBuffer(m_digests[0], &zero, 1, 0, (NUM_VALUES + NUM_VALUES / 2) * sizeof(digest_t), 0);
-		m_queue.enqueueFillBuffer(m_digests[1], &zero, 1, 0, (NUM_VALUES + NUM_VALUES / 2) * sizeof(digest_t), 0);
-		m_queue.enqueueFillBuffer(m_buckets, &zero, 1, 0, NUM_BUCKETS * sizeof(bucket_t) * EQUIHASH_K, 0);
-		m_queue.enqueueFillBuffer(m_new_digest_index, &zero, 1, 0, sizeof(uint32_t), 0);
-		m_queue.enqueueFillBuffer(m_blake2b_digest, &zero, 1, 0, sizeof(crypto_generichash_blake2b_state), 0);
-		m_queue.enqueueFillBuffer(m_dst_solutions, &zero, 1, 0, 20*NUM_INDICES*sizeof(uint32_t), 0);
-		m_queue.enqueueFillBuffer(m_n_solutions, &zero, 1, 0, sizeof(uint32_t), 0);
+		blake2b_state_t     blake;
+    	cl::Buffer          buf_blake_st;
+		uint32_t		sol_found = 0;
+		size_t      local_ws = 64;
+		size_t		global_ws;
+		uint64_t		*nonce_ptr;
+    	assert(header_len == ZCASH_BLOCK_HEADER_LEN ||
+	    header_len == ZCASH_BLOCK_HEADER_LEN - ZCASH_NONCE_LEN);
+    	nonce_ptr = (uint64_t *)(header + ZCASH_BLOCK_HEADER_LEN - ZCASH_NONCE_LEN);
+    	if (header_len == ZCASH_BLOCK_HEADER_LEN - ZCASH_NONCE_LEN)
+			memset(nonce_ptr, 0, ZCASH_NONCE_LEN);
+    	// add the nonce
+    	*nonce_ptr += nonce;
+		*ptr = *nonce_ptr;
+
+		printf("\nSolving nonce %s\n", s_hexdump(nonce_ptr, ZCASH_NONCE_LEN));
+
+		zcash_blake2b_init(&blake, ZCASH_HASH_LEN, PARAM_N, PARAM_K);
+		zcash_blake2b_update(&blake, header, 128, 0);
+		buf_blake_st = cl::Buffer(m_context, CL_MEM_READ_ONLY, sizeof (blake.h), NULL, NULL);
+		m_queue.enqueueWriteBuffer(buf_blake_st, true, 0, sizeof(blake.h), blake.h);
 
 		m_queue.finish();
 
-		// update buffer
-		m_queue.enqueueWriteBuffer(m_blake2b_digest, true, 0, sizeof(crypto_generichash_blake2b_state), &base_state);
+		for (unsigned round = 0; round < PARAM_K; round++) {
+
+			size_t      global_ws = NR_ROWS;
+			
+			m_zogKernels[0].setArg(0, buf_ht[round % 2]);
+			m_queue.enqueueNDRangeKernel(m_zogKernels[0], cl::NullRange, cl::NDRange(global_ws), cl::NDRange(local_ws));
+			
+			if (!round) {
+				m_zogKernels[1+round].setArg(0, buf_blake_st);
+				m_zogKernels[1+round].setArg(1, buf_ht[round % 2]);
+				global_ws = select_work_size_blake();
+			} else {
+				m_zogKernels[1+round].setArg(0, buf_ht[(round - 1) % 2]);
+				m_zogKernels[1+round].setArg(1, buf_ht[round % 2]);
+				global_ws = NR_ROWS;
+			}
+			
+			m_zogKernels[1+round].setArg(2, buf_dbg);
+
+			m_queue.enqueueNDRangeKernel(m_zogKernels[1+round], cl::NullRange, cl::NDRange(global_ws), cl::NDRange(local_ws));
+		
+		}
+		
+		m_zogKernels[10].setArg(0, buf_ht[0]);
+		m_zogKernels[10].setArg(1, buf_ht[1]);
+		m_zogKernels[10].setArg(2, buf_sols);
+		global_ws = NR_ROWS;
+		m_queue.enqueueNDRangeKernel(m_zogKernels[10], cl::NullRange, cl::NDRange(global_ws), cl::NDRange(local_ws)); 
+
+		sols_t	* sols;
+		sols = (sols_t *)malloc(sizeof(*sols));
+
+		m_queue.enqueueReadBuffer(buf_sols, true, 0, sizeof (*sols), sols);
 
 		m_queue.finish();
 
-		// TODO: Check zcashd for methods for choosing nonces
-
-		/* This is for future loop and output timing
-		random_device engine;
-		uint64_t start_nonce = uniform_int_distribution<uint64_t>()(engine);
-		for (;; start_nonce += m_globalWorkSize)
-		{
-			auto t = chrono::high_resolution_clock::now();
-		*/
-
-		//CL_LOG("Running Solver...");
-		// Just send it numbers for now
-
-		//TODO find out why it is segfaulting
-		m_zogKernels[0].setArg(0, m_buckets);
-		m_zogKernels[0].setArg(1, m_digests[0]);
-		m_zogKernels[0].setArg(2, m_blake2b_digest);
-		m_zogKernels[0].setArg(3, m_new_digest_index);
-
-		// execute it!
-		// Here we assume an 1-Dimensional problem split into local worksizes
-		m_queue.enqueueNDRangeKernel(m_zogKernels[0], cl::NullRange, cl::NDRange(1 << 20), cl::NullRange);
-
-		m_queue.finish();
-
-		uint32_t i = 1;
-    	for(i = 1; i < EQUIHASH_K; ++i) {
-
-			m_queue.enqueueFillBuffer(m_new_digest_index, &zero, 1, 0, sizeof(uint32_t), 0);
-
-			m_queue.finish();
-
-			//std::cout << "Step: " << i << "..." << std::endl;
-
-			m_zogKernels[1].setArg(0, m_digests[i % 2]);
-			m_zogKernels[1].setArg(1, m_digests[(i - 1)  % 2]);
-			m_zogKernels[1].setArg(2, m_buckets);
-			m_zogKernels[1].setArg(3, i);
-			m_zogKernels[1].setArg(4, m_new_digest_index);
-
-			m_queue.enqueueNDRangeKernel(m_zogKernels[1], cl::NullRange, cl::NDRange(1 << 20), cl::NDRange(32));
-
-			m_queue.finish();
-
+		if (sols->nr > MAX_SOLS) {
+			fprintf(stderr, "%d (probably invalid) solutions were dropped!\n",
+			sols->nr - MAX_SOLS);
+			sols->nr = MAX_SOLS;
 		}
 
-		uint32_t n_solutions = 0;
+		for (unsigned sol_i = 0; sol_i < sols->nr; sol_i++)
+			sol_found += verify_sol(sols, sol_i);
 
-		//TODO Is this really necessary?
-		//This is not necessary, working on removing it
-		m_queue.enqueueFillBuffer(m_n_solutions, &zero, 1, 0, sizeof(uint32_t), 0);
+		//print_sols(sols, nonce, nr_valid_sols);
 
-		m_zogKernels[2].setArg(0, m_dst_solutions);
-		m_zogKernels[2].setArg(1, m_n_solutions);
-		m_zogKernels[2].setArg(2, m_buckets);
-		m_zogKernels[2].setArg(3, m_digests[0]);
-		m_zogKernels[2].setArg(4, m_blake2b_digest);
+		//memcpy(sols_old, dst_solutions, 20*512*sizeof(uint32_t));
+		*n_sol = sol_found;
+		memcpy(indices, sols, sizeof(sols_t));
 
-		m_queue.enqueueNDRangeKernel(m_zogKernels[2], cl::NullRange, cl::NDRange(1 << 16), cl::NDRange(32));
-
-		m_queue.finish();
-
-		//pending.push({ start_nonce, buf });
-		//buf = (buf + 1) % c_bufferCount;
-/*#if CL_VERSION_1_2 && 0
-		cl::Event pre_return_event;
-		if (!m_opencl_1_1)
-			m_queue.enqueueBarrierWithWaitList(NULL, &pre_return_event);
-		else
-#endif
-			m_queue.finish();*/
-
-		// read results - The results don't change... just template for now
-		//dst_solutions = (uint32_t*)m_queue.enqueueMapBuffer(m_dst_solutions, true, CL_MAP_READ, 0, 10*NUM_INDICES*sizeof(uint32_t));
-		//solutions = (uint32_t*)m_queue.enqueueMapBuffer(m_n_solutions, true, CL_MAP_READ, 0, sizeof(uint32_t));
-
-		m_queue.enqueueReadBuffer(m_dst_solutions, true, 0, 10*NUM_INDICES*sizeof(uint32_t), dst_solutions);
-		m_queue.enqueueReadBuffer(m_n_solutions, true, 0, sizeof(uint32_t), &solutions);
-
-		m_queue.finish();
-		
-		for(i = 0; i < solutions; ++i) {
-        	normalize_indices(dst_solutions + (NUM_INDICES*i));
-    	}
-
-		//std::cout << "Solutions: " << solutions << std::endl;
-
-		memcpy(sols, dst_solutions, 20*512*sizeof(uint32_t));
-		*n_sol = solutions;
-
-		/*if (i % 10 == 0){
-			CL_LOG("Iteration: " << i << " Result: " <<  *results);
-		}*/
-
-			/* This may be useful to get regular outputs
-				TODO: Implement this for equihash kernel
-
-			// adjust global work size depending on last search time
-			if (s_msPerBatch)
-			{
-				// Global work size must be:
-				//  - less than or equal to 2 ^ DEVICE_BITS - 1
-				//  - divisible by lobal work size (workgroup size)
-				auto d = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - t);
-				if (d != chrono::milliseconds(0)) // if duration is zero, we did not get in the actual searh/or search not finished
-				{
-					if (d > chrono::milliseconds(s_msPerBatch * 10 / 9))
-					{
-						// Divide the step by 2 when adjustment way change
-						if (m_wayWorkSizeAdjust > -1)
-							m_stepWorkSizeAdjust = max<unsigned>(1, m_stepWorkSizeAdjust / 2);
-						m_wayWorkSizeAdjust = -1;
-						// cerr << "m_stepWorkSizeAdjust: " << m_stepWorkSizeAdjust << ", m_wayWorkSizeAdjust: " << m_wayWorkSizeAdjust << endl;
-
-						// cerr << "Batch of " << m_globalWorkSize << " took " << chrono::duration_cast<chrono::milliseconds>(d).count() << " ms, >> " << s_msPerBatch << " ms." << endl;
-						m_globalWorkSize = max<unsigned>(128, m_globalWorkSize - m_stepWorkSizeAdjust);
-						// cerr << "New global work size" << m_globalWorkSize << endl;
-					}
-					else if (d < chrono::milliseconds(s_msPerBatch * 9 / 10))
-					{
-						// Divide the step by 2 when adjustment way change
-						if (m_wayWorkSizeAdjust < 1)
-							m_stepWorkSizeAdjust = max<unsigned>(1, m_stepWorkSizeAdjust / 2);
-						m_wayWorkSizeAdjust = 1;
-						// cerr << "m_stepWorkSizeAdjust: " << m_stepWorkSizeAdjust << ", m_wayWorkSizeAdjust: " << m_wayWorkSizeAdjust << endl;
-
-						// cerr << "Batch of " << m_globalWorkSize << " took " << chrono::duration_cast<chrono::milliseconds>(d).count() << " ms, << " << s_msPerBatch << " ms." << endl;
-						m_globalWorkSize = min<unsigned>(pow(2, m_deviceBits) - 1, m_globalWorkSize + m_stepWorkSizeAdjust);
-						// Global work size should never be less than the workgroup size
-						m_globalWorkSize = max<unsigned>(s_workgroupSize,  m_globalWorkSize);
-						// cerr << "New global work size" << m_globalWorkSize << endl;
-					}
-				}
-			}
-			*/
-		//}
-
-		// not safe to return until this is ready
+		free(sols);
 
 	}
 	catch (cl::Error const& err)
