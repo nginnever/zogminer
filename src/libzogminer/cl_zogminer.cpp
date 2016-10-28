@@ -409,10 +409,10 @@ void cl_zogminer::run(uint8_t *header, size_t header_len, uint64_t nonce, sols_t
     	if (header_len == ZCASH_BLOCK_HEADER_LEN - ZCASH_NONCE_LEN)
 			memset(nonce_ptr, 0, ZCASH_NONCE_LEN);
     	// add the nonce
-    	*nonce_ptr += nonce;
+    	//*nonce_ptr += nonce;
 		*ptr = *nonce_ptr;
 
-		printf("\nSolving nonce %s\n", s_hexdump(nonce_ptr, ZCASH_NONCE_LEN));
+		//printf("\nSolving nonce %s\n", s_hexdump(nonce_ptr, ZCASH_NONCE_LEN));
 
 		zcash_blake2b_init(&blake, ZCASH_HASH_LEN, PARAM_N, PARAM_K);
 		zcash_blake2b_update(&blake, header, 128, 0);
@@ -458,8 +458,8 @@ void cl_zogminer::run(uint8_t *header, size_t header_len, uint64_t nonce, sols_t
 		m_queue.finish();
 
 		if (sols->nr > MAX_SOLS) {
-			fprintf(stderr, "%d (probably invalid) solutions were dropped!\n",
-			sols->nr - MAX_SOLS);
+			/*fprintf(stderr, "%d (probably invalid) solutions were dropped!\n",
+			sols->nr - MAX_SOLS);*/
 			sols->nr = MAX_SOLS;
 		}
 
@@ -468,7 +468,6 @@ void cl_zogminer::run(uint8_t *header, size_t header_len, uint64_t nonce, sols_t
 
 		//print_sols(sols, nonce, nr_valid_sols);
 
-		//memcpy(sols_old, dst_solutions, 20*512*sizeof(uint32_t));
 		*n_sol = sol_found;
 		memcpy(indices, sols, sizeof(sols_t));
 

@@ -459,6 +459,10 @@ void static BitcoinMiner(CWallet *pwallet, GPUConfig conf)
 	if(conf.useGPU)
     	solver = new GPUSolver(conf.selGPU);
 
+	uint64_t nn= 0;
+	//TODO Free
+	uint8_t * header = (uint8_t *) calloc(ZCASH_BLOCK_HEADER_LEN, sizeof(uint8_t));
+
     std::mutex m_cs;
     bool cancelSolver = false;
     boost::signals2::connection c = uiInterface.NotifyBlockTip.connect(
@@ -576,7 +580,7 @@ void static BitcoinMiner(CWallet *pwallet, GPUConfig conf)
 		                    break;
 		                }
 					} else {
-						if (solver->run(n, k, (uint8_t *)&ss[0], ZCASH_BLOCK_HEADER_LEN, pblock->nNonce.GetCheapHash(), validBlock, cancelledGPU, curr_state)) {
+						if (solver->run(n, k, (uint8_t *)&ss[0], ZCASH_BLOCK_HEADER_LEN - ZCASH_NONCE_LEN, nn++, validBlock, cancelledGPU, curr_state)) {
 		                    break;
 		                }
 					}
