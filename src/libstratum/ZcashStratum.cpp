@@ -35,7 +35,7 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos, GPUConfig con
 
     GPUSolver * solver;
 	if(conf.useGPU)
-    	solver = new GPUSolver(conf.selGPU);
+    	solver = new GPUSolver(0,conf.selGPU);
 
 	//TODO Free
 	uint8_t * tmp_header = (uint8_t *) calloc(128, sizeof(uint8_t));
@@ -94,7 +94,7 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos, GPUConfig con
                 CEquihashInput I{header};
                 ss << I;
             }
-		
+
 			memcpy(tmp_header, &ss[0], ss.size());
 
             // H(I||...
@@ -157,7 +157,7 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos, GPUConfig con
 		                    break;
 		                }
 					}
-                    
+
                 } catch (GPUSolverCancelledException&) {
                     LogPrint("pow", "Equihash solver cancelled\n");
                     cancelSolver.store(false);

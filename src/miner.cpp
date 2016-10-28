@@ -446,6 +446,7 @@ void static BitcoinMiner(CWallet *pwallet, GPUConfig conf)
     LogPrintf("ZcashMiner started\n");
     SetThreadPriority(THREAD_PRIORITY_LOWEST);
     RenameThread("zcash-miner");
+    LogPrint("MINER", "Loading Device: %u", conf.currentDevice);
     const CChainParams& chainparams = Params();
 
     // Each thread has its own key and counter
@@ -457,7 +458,7 @@ void static BitcoinMiner(CWallet *pwallet, GPUConfig conf)
 
     GPUSolver * solver;
 	if(conf.useGPU)
-    	solver = new GPUSolver(conf.selGPU);
+    	solver = new GPUSolver(conf.currentPlatform, conf.currentDevice);
 
     std::mutex m_cs;
     bool cancelSolver = false;
@@ -657,6 +658,30 @@ void GenerateBitcoins(bool fGenerate, CWallet* pwallet, int nThreads, GPUConfig 
 {
     static boost::thread_group* minerThreads = NULL;
 
+
+  	if(conf.useGPU)
+    {
+    minerThreads = new boost::thread_group();
+    conf.currentPlatform =0;
+    conf.currentDevice = conf.selGPU;
+        if(conf.allGPU)
+        {
+          static unsigned numPlatforms = cl_zogminer::getNumPlatforms();
+          for(unsigned platform = 0; platform < numPlatforms; ++platform){
+            static unsigned noDevices = cl_zogminer::getNumDevices(platform);
+            fprintf(stderr, "noDevices:%u", noDevices);
+            for(unsigned j = 0; j < noDevices; ++j){
+                conf.currentPlatform = platform;
+                conf.currentDevice = j;
+                minerThreads->create_thread(boost::bind(&BitcoinMiner, pwallet, conf));
+              }
+          }
+      }
+      else
+        minerThreads->create_thread(boost::bind(&BitcoinMiner, pwallet, conf));
+    }
+    else
+      {
     if (nThreads < 0) {
         // In regtest threads defaults to 1
         if (Params().DefaultMinerThreads())
@@ -678,6 +703,7 @@ void GenerateBitcoins(bool fGenerate, CWallet* pwallet, int nThreads, GPUConfig 
     minerThreads = new boost::thread_group();
     for (int i = 0; i < nThreads; i++)
         minerThreads->create_thread(boost::bind(&BitcoinMiner, pwallet, conf));
-}
+  }
 
+}
 #endif // ENABLE_WALLET

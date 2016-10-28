@@ -43,36 +43,13 @@ char *s_hexdump(const void *_a, uint32_t a_len)
 
 GPUSolver::GPUSolver() {
 
-	/* Notes
-	I've added some extra parameters in this interface to assist with dev, such as
-	a kernel string to specify which kernel to run and local/global work sizes.
-
-	The following are private members of the class, but I have them here to specify the
-	global work size for now. This will probably be hard-coded later
-	*/
-	unsigned int z_n = 200;
-	unsigned int z_k = 9;
-	size_t z_collision_bit_length = z_n / (z_k + 1);
-	eh_index z_N = 1 << (z_collision_bit_length + 1);
-	//uint32_t global_work_size = z_N;
-
-	//TODO This looks like IND_PER_BUCKET, enough for GPU?
-	size_t global_work_size = 1 << 20;
-    size_t local_work_size = 32;
-
-	miner = new cl_zogminer();
-
-	indices = (sols_t *) malloc(sizeof(sols_t));
-	if(indices == NULL)
-		std::cout << "Error allocating indices array!" << std::endl;
-
 	/* Checks each device for memory requirements and sets local/global sizes
 	TODO: Implement device logic for equihash kernel
 	@params: unsigned platformId
 	@params: unsigned localWorkSizes
 	@params: unsigned globalWorkSizes
 	*/
-	GPU = miner->configureGPU(0, local_work_size, global_work_size);
+	GPU = miner->configureGPU(0, 32, 1<<20);
 	if(!GPU)
 		std::cout << "ERROR: No suitable GPU found! No work will be performed!" << std::endl;
 
@@ -90,24 +67,7 @@ GPUSolver::GPUSolver() {
 
 }
 
-GPUSolver::GPUSolver(int64_t selGPU) {
-
-	/* Notes
-	I've added some extra parameters in this interface to assist with dev, such as
-	a kernel string to specify which kernel to run and local/global work sizes.
-
-	The following are private members of the class, but I have them here to specify the
-	global work size for now. This will probably be hard-coded later
-	*/
-	unsigned int z_n = 200;
-	unsigned int z_k = 9;
-	size_t z_collision_bit_length = z_n / (z_k + 1);
-	eh_index z_N = 1 << (z_collision_bit_length + 1);
-	//uint32_t global_work_size = z_N;
-
-	//TODO This looks like IND_PER_BUCKET, enough for GPU?
-	size_t global_work_size = 1 << 20;
-    size_t local_work_size = 32;
+GPUSolver::GPUSolver(unsigned platform, unsigned device) {
 
 	miner = new cl_zogminer();
 
@@ -115,26 +75,15 @@ GPUSolver::GPUSolver(int64_t selGPU) {
 	if(indices == NULL)
 		std::cout << "Error allocating indices array!" << std::endl;
 
-	/* Checks each device for memory requirements and sets local/global sizes
-	TODO: Implement device logic for equihash kernel
-	@params: unsigned platformId
-	@params: unsigned localWorkSizes
-	@params: unsigned globalWorkSizes
-	*/
-	GPU = miner->configureGPU(0, local_work_size, global_work_size);
+	GPU = miner->configureGPU(platform, 32, 1<<20);
 	if(!GPU)
 		std::cout << "ERROR: No suitable GPU found! No work will be performed!" << std::endl;
 
-	/*Initialize the kernel, compile it and create buffers
-	Currently runs for the gpu-list-gen.c kernel DATA_SIZE=100 times
-	TODO: pass base state and nonce's to kernel.
-	@params: unsigned _platformId
-	@params: unsigned _deviceId
-	@params: string& _kernel - The name of the kernel for dev purposes
-	*/
 	std::vector<std::string> kernels {"kernel_init_ht", "kernel_round0", "kernel_round1", "kernel_round2","kernel_round3", "kernel_round4", "kernel_round5", "kernel_round6", "kernel_round7", "kernel_round8", "kernel_sols"};
+
 	if(GPU)
-		initOK = miner->init(0, selGPU, kernels);
+			initOK = miner->init(platform, device, kernels);
+
 
 }
 
@@ -172,7 +121,7 @@ bool GPUSolver::GPUSolve200_9(uint8_t *header, size_t header_len, uint64_t nonce
 	TODO: Optimise and figure out how we want this to go
 	@params eh_HashState& base_state - Sends to kernel in a buffer. Will update for specific kernels
 	*/
-    
+
 	if(GPU && initOK) {
         auto t = std::chrono::high_resolution_clock::now();
 		uint64_t ptr;
@@ -188,12 +137,12 @@ bool GPUSolver::GPUSolve200_9(uint8_t *header, size_t header_len, uint64_t nonce
 
 		if(!counter) {
 			sum = 1000.f*n_sol/milis;
-		} else { 
+		} else {
 			sum += 1000.f*n_sol/milis;
 		}
-		
-		avg = sum/++counter;				
-		
+
+		avg = sum/++counter;
+
 		if(!(counter % 10))
 			std::cout << "Kernel run took " << milis << " ms. (" << avg << " H/s)" << std::endl;
 		std::cout << "Solutions: " << n_sol << std::endl;
@@ -203,7 +152,7 @@ bool GPUSolver::GPUSolve200_9(uint8_t *header, size_t header_len, uint64_t nonce
 			++s;
 			if(indices->valid[s-1])
         		--checkedSols;
-			else 
+			else
 				continue;
             //std::cout << "Checking solution " << checkedSols << std::endl;
             std::vector<eh_index> index_vector(PROOFSIZE);
@@ -241,4 +190,3 @@ bool GPUSolver::GPUSolve200_9(uint8_t *header, size_t header_len, uint64_t nonce
     return false;
 
 }
-

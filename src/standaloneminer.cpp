@@ -107,12 +107,15 @@ void test_mine(int n, int k, uint32_t d, GPUConfig conf)
     arith_uint256 hashTarget = arith_uint256().SetCompact(d);
 	GPUSolver * solver;
 	if(conf.useGPU)
-    	solver = new GPUSolver(conf.selGPU);
+  {
+      conf.currentDevice = conf.selGPU;
+    	solver = new GPUSolver(0, conf.currentDevice);
+    }
 
 	uint64_t nn= 0;
 	//TODO Free
 	uint8_t * header = (uint8_t *) calloc(ZCASH_BLOCK_HEADER_LEN, sizeof(uint8_t));
-	
+
 
     while (true) {
         // Hash state
@@ -123,7 +126,7 @@ void test_mine(int n, int k, uint32_t d, GPUConfig conf)
         CEquihashInput I{pblock};
         CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
         ss << I;
-		
+
 		//std::cout << "ss size: "<< ss.size() << std::endl;
 		memcpy(header, &ss[0], ss.size());
         // H(I||...
@@ -145,7 +148,7 @@ void test_mine(int n, int k, uint32_t d, GPUConfig conf)
             // (x_1, x_2, ...) = A(I, V, n, k)
             LogPrint("pow", "Running Equihash solver with nNonce = %s\n",
                      pblock.nNonce.ToString());
-			
+
 
             std::function<bool(std::vector<unsigned char>)> validBlock =
                     [&pblock, &hashTarget, &nStart, &start_cycles]
@@ -234,7 +237,7 @@ int main(int argc, char* argv[])
         std::cout << strUsage;
         return 1;
     }
-	
+
 	if(GetBoolArg("-listdevices", false)) {
 		//Generic Things
 		std::cout << "Number of Platforms:" << cl_zogminer::getNumPlatforms << "\n";
@@ -265,10 +268,10 @@ int main(int argc, char* argv[])
     }
 
     LogPrintf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
-    LogPrintf("Zcash Miner version %s (%s)\n", FormatFullVersion(), CLIENT_DATE);		
+    LogPrintf("Zcash Miner version %s (%s)\n", FormatFullVersion(), CLIENT_DATE);
 
     // Start the mining operation
-	
+
 
     std::string stratum = GetArg("-stratum", "");
     if (!stratum.empty() || GetBoolArg("-stratum", false)) {
