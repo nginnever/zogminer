@@ -111,7 +111,7 @@ void test_mine(int n, int k, uint32_t d, GPUConfig conf)
 
 	uint64_t nn= 0;
 	//TODO Free
-	uint8_t * header = (uint8_t *) calloc(128, sizeof(uint8_t));
+	uint8_t * header = (uint8_t *) calloc(ZCASH_BLOCK_HEADER_LEN, sizeof(uint8_t));
 	
 
     while (true) {
@@ -183,7 +183,7 @@ void test_mine(int n, int k, uint32_t d, GPUConfig conf)
 				if(!conf.useGPU)
                 	foundBlock = EhOptimisedSolve(n, k, curr_state, validBlock, cancelled);
 				else
-					foundBlock = solver->run(n, k, header, ZCASH_BLOCK_HEADER_LEN, nn++, validBlock, cancelledGPU, curr_state);
+					foundBlock = solver->run(n, k, header, ZCASH_BLOCK_HEADER_LEN - ZCASH_NONCE_LEN, nn++, validBlock, cancelledGPU, curr_state);
                     uint64_t solve_end = rdtsc();
                     LogPrint("cycles", "Solver took %2.2f Mcycles\n\n",
                     (double)(solve_end - solve_start) / (1UL << 20));

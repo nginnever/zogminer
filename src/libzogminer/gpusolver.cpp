@@ -26,6 +26,7 @@
 #include "gpusolver.h"
 #include "util.h"
 #include "primitives/block.h"
+#include "arith_uint256.h"
 
 #define DEBUG
 
@@ -208,63 +209,19 @@ bool GPUSolver::GPUSolve200_9(uint8_t *header, size_t header_len, uint64_t nonce
             std::vector<unsigned char> sol_char = GetMinimalFromIndices(index_vector, DIGITBITS);
 #ifdef DEBUG
             bool isValid;
-            CBlock pblock;
-/*			uint64_t *nonce_ptr;
-	    	assert(header_len == ZCASH_BLOCK_HEADER_LEN ||
-		    header_len == ZCASH_BLOCK_HEADER_LEN - ZCASH_NONCE_LEN);
-	    	nonce_ptr = (uint64_t *)(header + ZCASH_BLOCK_HEADER_LEN - ZCASH_NONCE_LEN);
-	    	if (header_len == ZCASH_BLOCK_HEADER_LEN - ZCASH_NONCE_LEN)
-				memset(nonce_ptr, 0, ZCASH_NONCE_LEN);
-	    	// add the nonce
-	    	*nonce_ptr += nonce;
-
-			//printf("\nSolving nonce %s\n", s_hexdump(nonce_ptr, ZCASH_NONCE_LEN));
-
-
-
-            crypto_generichash_blake2b_update(&base_state,
-                                              pblock.nNonce.begin(),
-                                              ZCASH_NONCE_LEN);
-
-
-
-*/
-
-
-    		blake2b_state_t     blake;
-        	cl::Buffer          buf_blake_st;
-    		uint32_t		sol_found = 0;
-    		size_t      local_ws = 64;
-    		size_t		global_ws;
-    		uint64_t		*nonce_ptr;
-        	assert(header_len == ZCASH_BLOCK_HEADER_LEN ||
-    	    header_len == ZCASH_BLOCK_HEADER_LEN - ZCASH_NONCE_LEN);
-        	nonce_ptr = (uint64_t *)(header + ZCASH_BLOCK_HEADER_LEN - ZCASH_NONCE_LEN);
-        	if (header_len == ZCASH_BLOCK_HEADER_LEN - ZCASH_NONCE_LEN)
-    			memset(nonce_ptr, 0, ZCASH_NONCE_LEN);
-        	//add the nonce
-        	*nonce_ptr += nonce;
-
-	        crypto_generichash_blake2b_update(&base_state,
-	                              (unsigned char*)s_hexdump(nonce_ptr, ZCASH_NONCE_LEN),
-	                              pblock.nNonce.size());
-
-    		//printf("\nSolving nonce %s\n", s_hexdump(nonce_ptr, ZCASH_NONCE_LEN));
-
-    		zcash_blake2b_init(&blake, ZCASH_HASH_LEN, PARAM_N, PARAM_K);
-    		zcash_blake2b_update(&blake, header, 128, 0);
-
-
-
-            EhIsValidSolution(200, 9, base_state, sol_char, isValid);
-            std::cout << "is valid: " << isValid << '\n';
-            if (!isValid) {
-				  //If we find invalid solution bail, it cannot be a valid POW
-				  std::cout << "Invalid solution found!" << std::endl;
-              	  return false;
-            } else {
-            	std::cout << "Valid solution found!" << std::endl;
-            }
+			uint256 nNonce = ArithToUint256(nonce);
+			crypto_generichash_blake2b_update(&base_state,
+                                              nNonce.begin(),
+                                              nNonce.size());
+             EhIsValidSolution(200, 9, base_state, sol_char, isValid);
+             std::cout << "is valid: " << isValid << '\n';
+             if (!isValid) {
+ 				  //If we find invalid solution bail, it cannot be a valid POW
+ 				  std::cout << "Invalid solution found!" << std::endl;
+               	  //return false;
+             } else {
+             	std::cout << "Valid solution found!" << std::endl;
+             }
 #endif
             if (validBlock(sol_char)) {
             	// If we find a POW solution, do not try other solutions

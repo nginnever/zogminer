@@ -106,9 +106,9 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos, GPUConfig con
                 crypto_generichash_blake2b_state curr_state;
                 curr_state = state;
                 auto bNonce = ArithToUint256(nonce);
-                crypto_generichash_blake2b_update(&curr_state,
+                /*crypto_generichash_blake2b_update(&curr_state,
                                                   bNonce.begin(),
-                                                  bNonce.size());
+                                                  bNonce.size());*/
 
                 // (x_1, x_2, ...) = A(I, V, n, k)
                 LogPrint("pow", "Running Equihash solver with nNonce = %s\n",
