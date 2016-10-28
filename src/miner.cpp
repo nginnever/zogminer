@@ -459,9 +459,8 @@ void static BitcoinMiner(CWallet *pwallet, GPUConfig conf)
 	if(conf.useGPU)
     	solver = new GPUSolver(conf.selGPU);
 
+	uint8_t * tmp_header = (uint8_t *) calloc(ZCASH_BLOCK_HEADER_LEN, sizeof(uint8_t));
 	uint64_t nn= 0;
-	//TODO Free
-	uint8_t * header = (uint8_t *) calloc(ZCASH_BLOCK_HEADER_LEN, sizeof(uint8_t));
 
     std::mutex m_cs;
     bool cancelSolver = false;
@@ -523,12 +522,17 @@ void static BitcoinMiner(CWallet *pwallet, GPUConfig conf)
                 CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
                 ss << I;
 
+				memcpy(tmp_header, &ss[0], ss.size());
+
                 // H(I||...
                 crypto_generichash_blake2b_update(&state, (unsigned char*)&ss[0], ss.size());
 
                 // H(I||V||...
                 crypto_generichash_blake2b_state curr_state;
                 curr_state = state;
+
+				for (size_t i = 0; i < ZCASH_NONCE_LEN; ++i)
+					tmp_header[108 + i] = pblock->nNonce.begin()[i];
                 /*crypto_generichash_blake2b_update(&curr_state,
                                                   pblock->nNonce.begin(),
                                                   pblock->nNonce.size());*/
@@ -580,7 +584,7 @@ void static BitcoinMiner(CWallet *pwallet, GPUConfig conf)
 		                    break;
 		                }
 					} else {
-						if (solver->run(n, k, (uint8_t *)&ss[0], ZCASH_BLOCK_HEADER_LEN - ZCASH_NONCE_LEN, nn++, validBlock, cancelledGPU, curr_state)) {
+						if (solver->run(n, k, tmp_header, ZCASH_BLOCK_HEADER_LEN, *((uint64_t *)(pblock->nNonce.begin()+sizeof(uint64_t)+4)), validBlock, cancelledGPU, curr_state)) {
 		                    break;
 		                }
 					}
@@ -618,6 +622,8 @@ void static BitcoinMiner(CWallet *pwallet, GPUConfig conf)
         LogPrintf("ZcashMiner terminated\n");
 		if(conf.useGPU)
 			delete solver;
+		if(tmp_header)
+			free(tmp_header);
         throw;
     }
     catch (const std::runtime_error &e)
@@ -625,11 +631,15 @@ void static BitcoinMiner(CWallet *pwallet, GPUConfig conf)
         LogPrintf("ZcashMiner runtime error: %s\n", e.what());
 		if(conf.useGPU)
 			delete solver;
+		if(tmp_header)
+			free(tmp_header);
         return;
     }
 
 	if(conf.useGPU)
 		delete solver;
+	if(tmp_header)
+			free(tmp_header);
 
     c.disconnect();
 }
