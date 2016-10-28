@@ -26,6 +26,7 @@
 #include "gpusolver.h"
 #include "util.h"
 #include "primitives/block.h"
+#include "arith_uint256.h"
 
 #define DEBUG
 
@@ -244,9 +245,12 @@ bool GPUSolver::GPUSolve200_9(uint8_t *header, size_t header_len, uint64_t nonce
     			memset(nonce_ptr, 0, ZCASH_NONCE_LEN);
         	//add the nonce
         	*nonce_ptr += nonce;
+        	//std::string s = std::to_string(nonce);
+        	
+        	pblock.nNonce = ArithToUint256(arith_uint256(nonce));
 
 	        crypto_generichash_blake2b_update(&base_state,
-	                              (unsigned char*)s_hexdump(nonce_ptr, ZCASH_NONCE_LEN),
+	                              pblock.nNonce.begin(),
 	                              pblock.nNonce.size());
 
     		//printf("\nSolving nonce %s\n", s_hexdump(nonce_ptr, ZCASH_NONCE_LEN));
