@@ -24,8 +24,21 @@
 #include <chrono>
 
 #include "gpusolver.h"
+#include "util.h"
+#include "primitives/block.h"
 
-//#define DEBUG
+#define DEBUG
+
+char *s_hexdump(const void *_a, uint32_t a_len)
+{
+	const uint8_t	*a = (const uint8_t	*) _a;
+	static char		buf[1024];
+	uint32_t		i;
+	for (i = 0; i < a_len && i + 2 < sizeof (buf); i++)
+	    sprintf(buf + i * 2, "%02x", a[i]);
+	buf[i * 2] = 0;
+	return buf;
+}
 
 GPUSolver::GPUSolver() {
 
@@ -138,10 +151,11 @@ GPUSolver::~GPUSolver() {
 
 bool GPUSolver::run(unsigned int n, unsigned int k, uint8_t *header, size_t header_len, uint64_t nonce,
 		            const std::function<bool(std::vector<unsigned char>)> validBlock,
-				const std::function<bool(GPUSolverCancelCheck)> cancelled) {
+				const std::function<bool(GPUSolverCancelCheck)> cancelled,
+			crypto_generichash_blake2b_state base_state) {
 
     if (n == 200 && k == 9) {
-        return GPUSolve200_9(header, header_len, nonce, validBlock, cancelled);
+        return GPUSolve200_9(header, header_len, nonce, validBlock, cancelled, base_state);
     } else {
         throw std::invalid_argument("Unsupported Equihash parameters");
     }
@@ -150,7 +164,8 @@ bool GPUSolver::run(unsigned int n, unsigned int k, uint8_t *header, size_t head
 
 bool GPUSolver::GPUSolve200_9(uint8_t *header, size_t header_len, uint64_t nonce,
                  	const std::function<bool(std::vector<unsigned char>)> validBlock,
-			const std::function<bool(GPUSolverCancelCheck)> cancelled) {
+			const std::function<bool(GPUSolverCancelCheck)> cancelled,
+		crypto_generichash_blake2b_state base_state) {
 
 	/* Run the kernel
 	TODO: Optimise and figure out how we want this to go
@@ -193,6 +208,54 @@ bool GPUSolver::GPUSolve200_9(uint8_t *header, size_t header_len, uint64_t nonce
             std::vector<unsigned char> sol_char = GetMinimalFromIndices(index_vector, DIGITBITS);
 #ifdef DEBUG
             bool isValid;
+            CBlock pblock;
+/*			uint64_t *nonce_ptr;
+	    	assert(header_len == ZCASH_BLOCK_HEADER_LEN ||
+		    header_len == ZCASH_BLOCK_HEADER_LEN - ZCASH_NONCE_LEN);
+	    	nonce_ptr = (uint64_t *)(header + ZCASH_BLOCK_HEADER_LEN - ZCASH_NONCE_LEN);
+	    	if (header_len == ZCASH_BLOCK_HEADER_LEN - ZCASH_NONCE_LEN)
+				memset(nonce_ptr, 0, ZCASH_NONCE_LEN);
+	    	// add the nonce
+	    	*nonce_ptr += nonce;
+
+			//printf("\nSolving nonce %s\n", s_hexdump(nonce_ptr, ZCASH_NONCE_LEN));
+
+
+
+            crypto_generichash_blake2b_update(&base_state,
+                                              pblock.nNonce.begin(),
+                                              ZCASH_NONCE_LEN);
+
+
+
+*/
+
+
+    		blake2b_state_t     blake;
+        	cl::Buffer          buf_blake_st;
+    		uint32_t		sol_found = 0;
+    		size_t      local_ws = 64;
+    		size_t		global_ws;
+    		uint64_t		*nonce_ptr;
+        	assert(header_len == ZCASH_BLOCK_HEADER_LEN ||
+    	    header_len == ZCASH_BLOCK_HEADER_LEN - ZCASH_NONCE_LEN);
+        	nonce_ptr = (uint64_t *)(header + ZCASH_BLOCK_HEADER_LEN - ZCASH_NONCE_LEN);
+        	if (header_len == ZCASH_BLOCK_HEADER_LEN - ZCASH_NONCE_LEN)
+    			memset(nonce_ptr, 0, ZCASH_NONCE_LEN);
+        	//add the nonce
+        	*nonce_ptr += nonce;
+
+	        crypto_generichash_blake2b_update(&base_state,
+	                              (unsigned char*)s_hexdump(nonce_ptr, ZCASH_NONCE_LEN),
+	                              pblock.nNonce.size());
+
+    		//printf("\nSolving nonce %s\n", s_hexdump(nonce_ptr, ZCASH_NONCE_LEN));
+
+    		zcash_blake2b_init(&blake, ZCASH_HASH_LEN, PARAM_N, PARAM_K);
+    		zcash_blake2b_update(&blake, header, 128, 0);
+
+
+
             EhIsValidSolution(200, 9, base_state, sol_char, isValid);
             std::cout << "is valid: " << isValid << '\n';
             if (!isValid) {

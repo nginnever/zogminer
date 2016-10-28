@@ -153,7 +153,7 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos, GPUConfig con
 		                    break;
 		                }
 					} else {
-						if (solver->run(n, k, tmp_header, ZCASH_BLOCK_HEADER_LEN, bNonce.GetCheapHash(), validBlock, cancelledGPU)) {
+						if (solver->run(n, k, tmp_header, ZCASH_BLOCK_HEADER_LEN, bNonce.GetCheapHash(), validBlock, cancelledGPU, curr_state)) {
 		                    break;
 		                }
 					}

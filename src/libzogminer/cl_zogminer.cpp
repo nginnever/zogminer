@@ -23,7 +23,7 @@
 #undef min
 #undef max
 
-//#define DEBUG
+#define DEBUG
 
 using namespace std;
 

@@ -124,7 +124,7 @@ void test_mine(int n, int k, uint32_t d, GPUConfig conf)
         CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
         ss << I;
 		
-		std::cout << "ss size: "<< ss.size() << std::endl;
+		//std::cout << "ss size: "<< ss.size() << std::endl;
 		memcpy(header, &ss[0], ss.size());
         // H(I||...
         crypto_generichash_blake2b_update(&state, (unsigned char*)&ss[0], ss.size());
@@ -136,9 +136,9 @@ void test_mine(int n, int k, uint32_t d, GPUConfig conf)
             // H(I||V||...
             crypto_generichash_blake2b_state curr_state;
             curr_state = state;
-            crypto_generichash_blake2b_update(&curr_state,
-                                              pblock.nNonce.begin(),
-                                              pblock.nNonce.size());
+            //crypto_generichash_blake2b_update(&curr_state,
+            //                                  pblock.nNonce.begin(),
+            //                                  pblock.nNonce.size());
 
 			//std::cout << "nonce size: "<< sizeof(uint256) << " " << sizeof(uint64_t )  << std::endl;
 
@@ -183,11 +183,11 @@ void test_mine(int n, int k, uint32_t d, GPUConfig conf)
 				if(!conf.useGPU)
                 	foundBlock = EhOptimisedSolve(n, k, curr_state, validBlock, cancelled);
 				else
-					foundBlock = solver->run(n, k, header, ZCASH_BLOCK_HEADER_LEN, nn++, validBlock, cancelledGPU);
-                uint64_t solve_end = rdtsc();
-                LogPrint("cycles", "Solver took %2.2f Mcycles\n\n",
-                         (double)(solve_end - solve_start) / (1UL << 20));
-                // If we find a valid block, we rebuild
+					foundBlock = solver->run(n, k, header, ZCASH_BLOCK_HEADER_LEN, nn++, validBlock, cancelledGPU, curr_state);
+                    uint64_t solve_end = rdtsc();
+                    LogPrint("cycles", "Solver took %2.2f Mcycles\n\n",
+                    (double)(solve_end - solve_start) / (1UL << 20));
+                    // If we find a valid block, we rebuild
                 if (foundBlock) {
                     break;
                 }
