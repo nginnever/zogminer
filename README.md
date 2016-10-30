@@ -76,6 +76,12 @@ $ ./src/zcash-miner -help
 
 ### Solo mine ZCash
 
+This currently only works on the zcash branch https://github.com/nginnever/zcash
+
+zcashd -G -allgpu (this will load all your cards and solo mine)
+zcashd -G -deviceid= (this will run a specific card)
+zcashd -G -allgpu -genproclimit=2 (this will run two threads per card. If you're card has 4gb or more this can work)
+
 First create or modify ```~/.zcash/zcash.conf``` with the following:
 
 ```
