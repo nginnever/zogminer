@@ -1,6 +1,6 @@
 #PSA
 
-The solo mining portion of Zogminer has moved to a clone of the zcash repo found at https://github.com/nginnever/zcash We will make a PR to zcash when it is ready. This repo can still serve as pool miner. 
+The solo mining portion of Zogminer has moved (temporarily) to a clone of the zcash repo found at https://github.com/nginnever/zcash We will make a PR to zcash when it is ready. This repo can still serve as pool miner. 
 
 # ZCash-gpu-miner
 An OpenCL [Zcash](https://z.cash) miner solving [Equihash](https://www.internetsociety.org/sites/default/files/blogs-media/equihash-asymmetric-proof-of-work-based-generalized-birthday-problem.pdf) PoW.
