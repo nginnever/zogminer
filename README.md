@@ -17,7 +17,19 @@ Check the project's [roadmap](https://github.com/nginnever/zogminer/blob/master/
 
 ## Building
 
-First make sure OpenCL is correctly installed in your system. If you are having issues, take a look at our [Ubuntu Guide](https://github.com/nginnever/zogminer/wiki/Ubuntu-16.04-Setup) or [Fedora Guide](https://github.com/nginnever/zogminer/wiki/Fedora-24-Setup).
+First make sure OpenCL is correctly installed in your system. If you are having issues, take a look at our [Ubuntu Guide](https://github.com/nginnever/zogminer/wiki/Ubuntu-16.04-Setup) or [Fedora Guide](https://github.com/nginnever/zogminer/wiki/Fedora-24-Setup). 
+
+If you are getting ```/usr/bin/ld: cannot find -lOpenCL```, the error has to do with the driver installing ```libOpenCL.so``` as ```libOpenCL.so.1```. You can create a symlink:
+
+```
+$ sudo ln -s /usr/lib/libOpenCL.so.1 /usr/lib/libOpenCL.so
+```
+
+Or for people that do not want to mess with this:
+
+```
+$ sudo apt-get install ocl-icd-opencl-dev
+```
 
 ### Unix
 
