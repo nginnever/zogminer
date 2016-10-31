@@ -105,6 +105,8 @@ Next run zcashd:
 
 @omaralvarez
 
+ZEC: t1MEUYR6yu9hYQ31ECWmijVwx9R6pAXQSTy
+
 BTC: 18tvCqDFAFWv3jwDqXe5SBs6bmy9Xn4bnN
 
 ETH: 0x000DCB7ccB55faDaEc5C4A13E173a1E30e643867
