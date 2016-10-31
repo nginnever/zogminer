@@ -300,7 +300,7 @@ void ZcashMiner::start()
     minerThreads = new boost::thread_group();
     for (int i = 0; i < nThreads; i++) {
         minerThreads->create_thread(boost::bind(&ZcashMinerThread, this, nThreads, i, conf));
-    }
+	}
 }
 
 void ZcashMiner::stop()

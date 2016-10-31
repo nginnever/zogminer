@@ -244,8 +244,11 @@ int main(int argc, char* argv[])
 
 	GPUConfig conf;
 
-	conf.useGPU = GetBoolArg("-G", false);
+	conf.useGPU = GetBoolArg("-G", false) || GetBoolArg("-GPU", false);
 	conf.selGPU = GetArg("-S", 0);
+	conf.allGPU = GetBoolArg("-allgpu", false);
+	conf.forceGenProcLimit = GetBoolArg("-forcenolimit", false);
+	int nThreads = GetArg("-genproclimit", 1);
 	//std::cout << GPU << " " << selGPU << std::endl;
 
     // Zcash debugging
@@ -290,22 +293,154 @@ int main(int argc, char* argv[])
             return false;
         }
 
-        ZcashMiner miner(GetArg("-genproclimit", 1), conf);
-        ZcashStratumClient sc {
-            &miner, host, port,
-            GetArg("-user", "x"),
-            GetArg("-password", "x"),
-            0, 0
-        };
+		std::vector<ZcashStratumClient *> sClients;	
+		std::vector<ZcashMiner *> sMiners;	
 
-        miner.onSolutionFound([&](const EquihashSolution& solution) {
-            return sc.submit(&solution);
-        });
+		// If using GPU
+	  	if(conf.useGPU) {
 
-        scSig = &sc;
-        signal(SIGINT, stratum_sigint_handler);
+		  conf.currentPlatform = 0;
+		  conf.currentDevice = conf.selGPU;
 
-        while(sc.isRunning()) {
+		  std::vector<cl::Platform> platforms = cl_zogminer::getPlatforms();
+
+		  // use all available GPUs
+		  if(conf.allGPU) {
+
+		        int devicesFound = 0;
+		        unsigned numPlatforms = platforms.size();
+
+		        for(unsigned platform = 0; platform < numPlatforms; ++platform) {
+
+		          std::vector<cl::Device> devices = cl_zogminer::getDevices(platforms, platform);
+		          unsigned noDevices = devices.size();
+		          devicesFound += noDevices;
+		          for(unsigned device = 0; device < noDevices; ++device) {
+
+		              conf.currentPlatform = platform;
+		              conf.currentDevice = device;
+
+		              cl_ulong result;
+		              devices[device].getInfo(CL_DEVICE_GLOBAL_MEM_SIZE, &result);
+		         
+					  int maxThreads = nThreads;
+					  if (!conf.forceGenProcLimit) {
+					    if (result > 7500000000) {
+					      maxThreads = std::min(4, nThreads);
+					    } else if (result > 5500000000) {
+					      maxThreads = std::min(3, nThreads);
+					    } else if (result > 3500000000) {
+					      maxThreads = std::min(2, nThreads);
+					    } else {
+					      maxThreads = std::min(1, nThreads);
+					    }
+					  }
+
+		              LogPrintf("ZcashMiner GPU[%d][%d] MemLimit: %s nThreads: %d\n", platform, device, std::to_string(result), maxThreads);
+
+		            for (int i = 0; i < maxThreads; i++) {
+						ZcashMiner * miner = new ZcashMiner(1, conf);
+						sMiners.push_back(miner);
+						ZcashStratumClient * sc = new ZcashStratumClient{
+							miner, host, port,
+							GetArg("-user", "x"),
+							GetArg("-password", "x"),
+							0, 0
+						};
+						sClients.push_back(sc);
+
+						miner->onSolutionFound([&](const EquihashSolution& solution) {
+							return sc->submit(&solution);
+						});
+
+						scSig = sc;
+						signal(SIGINT, stratum_sigint_handler);
+					}
+
+		          }
+		        }
+
+		        if (devicesFound <= 0) {
+		           LogPrintf("ZcashMiner ERROR, No OpenCL devices found!\n");
+		        }
+
+		    } else {
+
+		      // mine on specified GPU device
+		      std::vector<cl::Device> devices = cl_zogminer::getDevices(platforms, conf.currentPlatform);
+
+		      if (devices.size() > conf.currentDevice) {
+
+		        cl_ulong result;
+		        devices[conf.currentDevice].getInfo(CL_DEVICE_GLOBAL_MEM_SIZE, &result);
+
+		        int maxThreads = nThreads;
+		        if (!conf.forceGenProcLimit) {
+		          if (result > 7500000000) {
+		            maxThreads = std::min(4, nThreads);
+		          } else if (result > 5500000000) {
+		            maxThreads = std::min(3, nThreads);
+		          } else if (result > 3500000000) {
+		            maxThreads = std::min(2, nThreads);
+		          } else {
+		            maxThreads = std::min(1, nThreads);
+		          }
+		        }
+
+		        LogPrintf("ZcashMiner GPU[%d][%d] MemLimit: %s nThreads: %d\n", conf.currentPlatform, conf.currentDevice, std::to_string(result), maxThreads);
+
+		        for (int i = 0; i < maxThreads; i++) {
+		          	ZcashMiner * miner = new ZcashMiner(1, conf);
+					sMiners.push_back(miner);
+					ZcashStratumClient * sc = new ZcashStratumClient{
+						miner, host, port,
+						GetArg("-user", "x"),
+						GetArg("-password", "x"),
+						0, 0
+					};
+					sClients.push_back(sc);
+
+					miner->onSolutionFound([&](const EquihashSolution& solution) {
+						return sc->submit(&solution);
+					});
+
+					scSig = sc;
+					signal(SIGINT, stratum_sigint_handler);
+			  }
+
+		      } else {
+		         LogPrintf("ZcashMiner ERROR, No OpenCL devices found!\n");
+		      }
+
+		    }
+
+	  } else {
+		 for (int i = 0; i < nThreads; i++) {
+		    ZcashMiner * miner = new ZcashMiner(1, conf);
+			sMiners.push_back(miner);
+			ZcashStratumClient * sc = new ZcashStratumClient{
+				miner, host, port,
+				GetArg("-user", "x"),
+				GetArg("-password", "x"),
+				0, 0
+			};
+			sClients.push_back(sc);
+
+			miner->onSolutionFound([&](const EquihashSolution& solution) {
+				return sc->submit(&solution);
+			});
+
+			scSig = sc;
+			signal(SIGINT, stratum_sigint_handler);
+		}
+	  }
+
+        while(true) {
+			
+			/*for(auto& sc : sClients)
+				if(!sc.isRunning())
+					break;*/
+
             MilliSleep(1000);
         }
     } else {
