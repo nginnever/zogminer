@@ -102,13 +102,6 @@ Next run zcashd:
 
 ## Donations
 
-@nginnever
-
-ZEC: t1PGgRgVQ14utsD7mp2dzGdykTDFUCKzPQ5
-
-BTC: 1A67XmfyukPNbrMmckBToE8xZPesuM6Ti1
-
-ETH: 0x82a642cAFD6bFc228C7B5Ea0394A0Ad702A7c03D
 
 @omaralvarez
 
@@ -120,3 +113,12 @@ ETH: 0x000DCB7ccB55faDaEc5C4A13E173a1E30e643867
 @AgeManning
 
 ZEC: t1MfAaj8YDwiwFb6RAnNtW4EtzvTvkFGBvV
+
+
+@nginnever
+
+ZEC: t1PGgRgVQ14utsD7mp2dzGdykTDFUCKzPQ5
+
+BTC: 1A67XmfyukPNbrMmckBToE8xZPesuM6Ti1
+
+ETH: 0x82a642cAFD6bFc228C7B5Ea0394A0Ad702A7c03D
