@@ -199,7 +199,7 @@ bool GPUSolver::GPUSolve200_9(uint8_t *header, size_t header_len, uint64_t nonce
 		std::cout << "Sols: " << n_sol << std::endl;
 		size_t checkedSols = n_sol;
 		size_t s = 0;
-        while (checkedSols) {
+       /* while (checkedSols) {
 			++s;
 			if(indices->valid[s-1])
         		--checkedSols;
@@ -232,7 +232,7 @@ bool GPUSolver::GPUSolve200_9(uint8_t *header, size_t header_len, uint64_t nonce
 				  //std::cout << "Valid block found!" << std::endl;
               	  return true;
             }
-        }
+        }*/
 
 		//free(indices);
 
