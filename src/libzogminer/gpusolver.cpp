@@ -62,7 +62,7 @@ GPUSolver::GPUSolver() {
 
 	miner = new cl_zogminer();
 
-	indices = (sols_t *) malloc(sizeof(sols_t));
+	indices = (sols_t *) malloc(sizeof(sols_t)*2);
 	if(indices == NULL)
 		std::cout << "Error allocating indices array!" << std::endl;
 
@@ -111,7 +111,7 @@ GPUSolver::GPUSolver(int64_t selGPU) {
 
 	miner = new cl_zogminer();
 
-	indices = (sols_t *) malloc(sizeof(sols_t));
+	indices = (sols_t *) malloc(sizeof(sols_t)*2);
 	if(indices == NULL)
 		std::cout << "Error allocating indices array!" << std::endl;
 
@@ -199,8 +199,10 @@ bool GPUSolver::GPUSolve200_9(uint8_t *header, size_t header_len, uint64_t nonce
 		std::cout << "Sols: " << n_sol << std::endl;
 		size_t checkedSols = n_sol;
 		size_t s = 0;
-       /* while (checkedSols) {
+//		size_t t = 0;
+        /*while (checkedSols) {
 			++s;
+			++t;
 			if(indices->valid[s-1])
         		--checkedSols;
 			else 

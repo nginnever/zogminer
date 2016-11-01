@@ -208,11 +208,18 @@ private:
 		return 1;
 	}
 	cl::Context m_context;
-	std::vector<cl::CommandQueue> m_queues;
-	std::vector<std::vector<cl::Kernel>> m_zogKernels;
-	std::vector<cl::Buffer> buf_ht;
-	std::vector<cl::Buffer> buf_sols;
-	std::vector<cl::Buffer> buf_dbg;
+	cl::Context m_context_2;
+	cl::CommandQueue m_queue;
+	cl::CommandQueue m_queue_2;
+	std::vector<cl::Kernel> m_zogKernels;
+	std::vector<cl::Kernel> m_zogKernels_2;
+	cl::Buffer buf_ht[2];
+	cl::Buffer buf_sols;
+	cl::Buffer buf_dbg;
+
+	cl::Buffer buf_ht_2[2];
+	cl::Buffer buf_sols_2;
+	cl::Buffer buf_dbg_2;
 
 	uint64_t		nonce;
     uint64_t		total;

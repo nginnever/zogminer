@@ -14,8 +14,6 @@
 #include "cl_zogminer.h"
 #include "kernels/cl_zogminer_kernel.h" // Created from CMake
 
-#define CL_QUEUES_PER_THREAD 2
-
 // workaround lame platforms
 #if !CL_VERSION_1_2
 #define CL_MAP_WRITE_INVALIDATE_REGION CL_MAP_WRITE
@@ -278,9 +276,8 @@ void cl_zogminer::listDevices()
 void cl_zogminer::finish()
 {
 
-	for(size_t i = 0; i < CL_QUEUES_PER_THREAD; ++i)
-		if (m_queues[i]())
-			m_queues[i].finish();
+	if (m_queue())
+		m_queue.finish();
 }
 
 // Customise given kernel - This builds the kernel and creates memory buffers
@@ -311,9 +308,10 @@ bool cl_zogminer::init(
 
 		// use selected device
 		cl::Device& device = devices[min<unsigned>(_deviceId, devices.size() - 1)];
+		cl::Device& device_2 = devices[min<unsigned>(_deviceId, devices.size() - 1)];
 		string device_version = device.getInfo<CL_DEVICE_VERSION>();
 		CL_LOG("Using device: " << device.getInfo<CL_DEVICE_NAME>().c_str() << "(" << device_version.c_str() << ")");
-
+		CL_LOG("Using device: " << device_2.getInfo<CL_DEVICE_NAME>().c_str() << "(" << device_version.c_str() << ")");
 		if (strncmp("OpenCL 1.0", device_version.c_str(), 10) == 0)
 		{
 			CL_LOG("OpenCL 1.0 is not supported.");
@@ -324,8 +322,9 @@ bool cl_zogminer::init(
 
 		// create context
 		m_context = cl::Context(vector<cl::Device>(&device, &device + 1));
-		for(size_t i = 0; i < CL_QUEUES_PER_THREAD; ++i)
-			m_queues.push_back(cl::CommandQueue(m_context, device));
+		m_context_2 = cl::Context(vector<cl::Device>(&device_2, &device_2 + 1));
+		m_queue = cl::CommandQueue(m_context, device);
+		m_queue_2 = cl::CommandQueue(m_context_2, device_2);
 
 		// make sure that global work size is evenly divisible by the local workgroup size
 		m_globalWorkSize = s_initialGlobalWorkSize;
@@ -353,9 +352,11 @@ bool cl_zogminer::init(
 		sources.push_back({ code.c_str(), code.size() });
 
 		cl::Program program(m_context, sources);
+		cl::Program program_2(m_context_2, sources);
 		try
 		{
 			program.build({ device });
+			program_2.build({ device_2 });
 			CL_LOG("Printing program log");
 			CL_LOG(program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device).c_str());
 		}
@@ -367,39 +368,36 @@ bool cl_zogminer::init(
 
 		try
 		{
-			for(size_t i = 0; i < CL_QUEUES_PER_THREAD; ++i) {
-
-				std::vector<cl::Kernel> temp;
-
-				for (auto & _kernel : _kernels)
-					temp.push_back(cl::Kernel(program, _kernel.c_str()));
-
-				m_zogKernels.push_back(temp);
-
-			}
+			for (auto & _kernel : _kernels)
+				m_zogKernels.push_back(cl::Kernel(program, _kernel.c_str()));
+			for (auto & _kernel : _kernels)
+				m_zogKernels_2.push_back(cl::Kernel(program_2, _kernel.c_str()));
 		}
 		catch (cl::Error const& err)
 		{
 			CL_LOG("ZOGKERNEL Creation failed: " << err.what() << "(" << err.err() << "). Bailing.");
 			return false;
 		}
+		std::cout << "Buffer creation!" << std::endl;
+		// TODO create buffer kernel inputs (private variables)
+	  	buf_dbg = cl::Buffer(m_context, CL_MEM_READ_WRITE, dbg_size, NULL, NULL);
+		//TODO Dangger
+		m_queue.enqueueFillBuffer(buf_dbg, &zero, 1, 0, dbg_size, 0);
+		buf_ht[0] = cl::Buffer(m_context, CL_MEM_READ_WRITE, HT_SIZE, NULL, NULL);
+		buf_ht[1] = cl::Buffer(m_context, CL_MEM_READ_WRITE, HT_SIZE, NULL, NULL);
+		buf_sols = cl::Buffer(m_context, CL_MEM_READ_WRITE, sizeof (sols_t), NULL, NULL);
 		
-		for(size_t i = 0; i < CL_QUEUES_PER_THREAD; ++i) {
+		buf_dbg_2 = cl::Buffer(m_context_2, CL_MEM_READ_WRITE, dbg_size, NULL, NULL);
+		//TODO Dangger
+		m_queue_2.enqueueFillBuffer(buf_dbg_2, &zero, 1, 0, dbg_size, 0);
+		buf_ht_2[0] = cl::Buffer(m_context_2, CL_MEM_READ_WRITE, HT_SIZE, NULL, NULL);
+		buf_ht_2[1] = cl::Buffer(m_context_2, CL_MEM_READ_WRITE, HT_SIZE, NULL, NULL);
+		buf_sols_2 = cl::Buffer(m_context_2, CL_MEM_READ_WRITE, sizeof (sols_t), NULL, NULL);
 
-		  	buf_dbg.push_back(cl::Buffer(m_context, CL_MEM_READ_WRITE, dbg_size, NULL, NULL));
-			m_queues[i].enqueueFillBuffer(buf_dbg[i], &zero, 1, 0, dbg_size, 0);
-
-			buf_ht.push_back(cl::Buffer(m_context, CL_MEM_READ_WRITE, HT_SIZE, NULL, NULL));
-			buf_ht.push_back(cl::Buffer(m_context, CL_MEM_READ_WRITE, HT_SIZE, NULL, NULL));
-
-			buf_sols.push_back(cl::Buffer(m_context, CL_MEM_READ_WRITE, sizeof (sols_t), NULL, NULL));
-
-			m_queues[i].flush();
-
-		}
-
-		for(size_t i = 0; i < CL_QUEUES_PER_THREAD; ++i)
-			m_queues[i].finish();
+		m_queue.flush();
+		m_queue_2.flush();
+		m_queue.finish();
+		m_queue_2.finish();
 
 	}
 	catch (cl::Error const& err)
@@ -417,7 +415,8 @@ void cl_zogminer::run(uint8_t *header, size_t header_len, uint64_t nonce, sols_t
 	{
 
 		blake2b_state_t     blake;
-    	vector<cl::Buffer>          buf_blake_st;
+    	cl::Buffer          buf_blake_st;
+		cl::Buffer          buf_blake_st_2;
 		uint32_t		sol_found = 0;
 		size_t      local_ws = 64;
 		size_t		global_ws;
@@ -435,72 +434,83 @@ void cl_zogminer::run(uint8_t *header, size_t header_len, uint64_t nonce, sols_t
 
 		zcash_blake2b_init(&blake, ZCASH_HASH_LEN, PARAM_N, PARAM_K);
 		zcash_blake2b_update(&blake, header, 128, 0);
+		buf_blake_st = cl::Buffer(m_context, CL_MEM_READ_ONLY, sizeof (blake.h), NULL, NULL);
+		m_queue.enqueueWriteBuffer(buf_blake_st, true, 0, sizeof(blake.h), blake.h);
 
-		for(size_t i = 0; i < CL_QUEUES_PER_THREAD; ++i) {
+		buf_blake_st_2 = cl::Buffer(m_context_2, CL_MEM_READ_ONLY, sizeof (blake.h), NULL, NULL);
+		m_queue_2.enqueueWriteBuffer(buf_blake_st_2, true, 0, sizeof(blake.h), blake.h);
 
-			buf_blake_st.push_back(cl::Buffer(m_context, CL_MEM_READ_ONLY, sizeof (blake.h), NULL, NULL));
-			m_queues[i].enqueueWriteBuffer(buf_blake_st[i], true, 0, sizeof(blake.h), blake.h);
-			m_queues[i].flush();
-			
-		}
-
-		for(size_t i = 0; i < CL_QUEUES_PER_THREAD; ++i)
-			m_queues[i].finish();
+		m_queue.flush();
+		m_queue_2.flush();
+		m_queue.finish();
+		m_queue_2.finish();
 
 		for (unsigned round = 0; round < PARAM_K; round++) {
 
 			size_t      global_ws = NR_ROWS;
 			
-			for(size_t i = 0; i < CL_QUEUES_PER_THREAD; ++i) {
+			m_zogKernels[0].setArg(0, buf_ht[round % 2]);
+			m_queue.enqueueNDRangeKernel(m_zogKernels[0], cl::NullRange, cl::NDRange(global_ws), cl::NDRange(local_ws));
+
+			m_zogKernels_2[0].setArg(0, buf_ht_2[round % 2]);
+			m_queue_2.enqueueNDRangeKernel(m_zogKernels_2[0], cl::NullRange, cl::NDRange(global_ws), cl::NDRange(local_ws));
 			
-				m_zogKernels[i][0].setArg(0, buf_ht[(i*CL_QUEUES_PER_THREAD) + (round % 2)]);
-				m_queues[i].enqueueNDRangeKernel(m_zogKernels[i][0], cl::NullRange, cl::NDRange(global_ws), cl::NDRange(local_ws));
-				m_queues[i].flush();
-
-				if (!round) {
-					m_zogKernels[i][1+round].setArg(0, buf_blake_st[i]);
-					m_zogKernels[i][1+round].setArg(1, buf_ht[(i*CL_QUEUES_PER_THREAD) + (round % 2)]);
-					global_ws = select_work_size_blake();
-				} else {
-					m_zogKernels[i][1+round].setArg(0, buf_ht[(i*CL_QUEUES_PER_THREAD) + ((round - 1) % 2)]);
-					m_zogKernels[i][1+round].setArg(1, buf_ht[(i*CL_QUEUES_PER_THREAD) + (round % 2)]);
-					global_ws = NR_ROWS;
-				}
-			
-				m_zogKernels[i][1+round].setArg(2, buf_dbg[i]);
-
-				m_queues[i].enqueueNDRangeKernel(m_zogKernels[i][1+round], cl::NullRange, cl::NDRange(global_ws), cl::NDRange(local_ws));
-				m_queues[i].flush();
-
+			if (!round) {
+				m_zogKernels[1+round].setArg(0, buf_blake_st);
+				m_zogKernels[1+round].setArg(1, buf_ht[round % 2]);
+				global_ws = select_work_size_blake();
+			} else {
+				m_zogKernels[1+round].setArg(0, buf_ht[(round - 1) % 2]);
+				m_zogKernels[1+round].setArg(1, buf_ht[round % 2]);
+				global_ws = NR_ROWS;
 			}
+			
+			m_zogKernels[1+round].setArg(2, buf_dbg);
+
+			m_queue.enqueueNDRangeKernel(m_zogKernels[1+round], cl::NullRange, cl::NDRange(global_ws), cl::NDRange(local_ws));
+
+
+			if (!round) {
+				m_zogKernels_2[1+round].setArg(0, buf_blake_st_2);
+				m_zogKernels_2[1+round].setArg(1, buf_ht_2[round % 2]);
+				global_ws = select_work_size_blake();
+			} else {
+				m_zogKernels_2[1+round].setArg(0, buf_ht_2[(round - 1) % 2]);
+				m_zogKernels_2[1+round].setArg(1, buf_ht_2[round % 2]);
+				global_ws = NR_ROWS;
+			}
+			
+			m_zogKernels_2[1+round].setArg(2, buf_dbg_2);
+
+			m_queue_2.enqueueNDRangeKernel(m_zogKernels_2[1+round], cl::NullRange, cl::NDRange(global_ws), cl::NDRange(local_ws));
 		
 		}
 		
-		for(size_t i = 0; i < CL_QUEUES_PER_THREAD; ++i) {
+		m_zogKernels[10].setArg(0, buf_ht[0]);
+		m_zogKernels[10].setArg(1, buf_ht[1]);
+		m_zogKernels[10].setArg(2, buf_sols);
+		global_ws = NR_ROWS;
+		m_queue.enqueueNDRangeKernel(m_zogKernels[10], cl::NullRange, cl::NDRange(global_ws), cl::NDRange(local_ws)); 
 
-			m_zogKernels[i][10].setArg(0, buf_ht[i*2 + 0]);
-			m_zogKernels[i][10].setArg(1, buf_ht[i*2 + 1]);
-			m_zogKernels[i][10].setArg(2, buf_sols[i]);
-			global_ws = NR_ROWS;
-			m_queues[i].enqueueNDRangeKernel(m_zogKernels[i][10], cl::NullRange, cl::NDRange(global_ws), cl::NDRange(local_ws)); 
-			m_queues[i].flush();
-
-		}
+		m_zogKernels_2[10].setArg(0, buf_ht_2[0]);
+		m_zogKernels_2[10].setArg(1, buf_ht_2[1]);
+		m_zogKernels_2[10].setArg(2, buf_sols_2);
+		global_ws = NR_ROWS;
+		m_queue_2.enqueueNDRangeKernel(m_zogKernels_2[10], cl::NullRange, cl::NDRange(global_ws), cl::NDRange(local_ws)); 
 
 		sols_t	* sols;
 		sols_t	* sols_2;
 		sols = (sols_t *)malloc(sizeof(*sols));
 		sols_2 = (sols_t *)malloc(sizeof(*sols));
 
+		m_queue.enqueueReadBuffer(buf_sols, true, 0, sizeof (*sols), sols);
 
-		m_queues[0].enqueueReadBuffer(buf_sols[0], true, 0, sizeof (*sols), sols);
-		m_queues[1].enqueueReadBuffer(buf_sols[1], true, 0, sizeof (*sols), sols_2);
-		for(size_t i = 0; i < CL_QUEUES_PER_THREAD; ++i)
-			m_queues[i].flush();
+		m_queue_2.enqueueReadBuffer(buf_sols_2, true, 0, sizeof (*sols), sols_2);
 
-		for(size_t i = 0; i < CL_QUEUES_PER_THREAD; ++i)
-			m_queues[i].finish();
-
+		m_queue.flush();
+		m_queue_2.flush();
+		m_queue.finish();
+		m_queue_2.finish();
 
 		if (sols->nr > MAX_SOLS) {
 			/*fprintf(stderr, "%d (probably invalid) solutions were dropped!\n",
@@ -525,6 +535,7 @@ void cl_zogminer::run(uint8_t *header, size_t header_len, uint64_t nonce, sols_t
 
 		*n_sol = sol_found;
 		memcpy(indices, sols, sizeof(sols_t));
+		memcpy(indices+1, sols_2, sizeof(sols_t));
 
 		free(sols);
 		free(sols_2);
