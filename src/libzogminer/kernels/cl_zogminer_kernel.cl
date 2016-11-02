@@ -22,11 +22,11 @@
 #if NR_ROWS_LOG == 16
 #define OVERHEAD                        3
 #elif NR_ROWS_LOG == 18
-#define OVERHEAD                        5
+#define OVERHEAD                        3
 #elif NR_ROWS_LOG == 19
-#define OVERHEAD                        9
+#define OVERHEAD                        5
 #elif NR_ROWS_LOG == 20
-#define OVERHEAD                        13
+#define OVERHEAD                        9
 #endif
 
 #define NR_ROWS                         (1 << NR_ROWS_LOG)
@@ -57,6 +57,7 @@
 
 // An (uncompressed) solution stores (1 << PARAM_K) 32-bit values
 #define SOL_SIZE			((1 << PARAM_K) * 4)
+
 typedef struct	sols_s
 {
     uint	nr;
@@ -287,7 +288,7 @@ void kernel_round0(__global ulong *blake_state, __global char *ht,
         // last block
         v[14] ^= -1;
 
-        // round 1 
+        // round 1
         mix(v[0], v[4], v[8],  v[12], 0, word1);
         mix(v[1], v[5], v[9],  v[13], 0, 0);
         mix(v[2], v[6], v[10], v[14], 0, 0);
@@ -296,7 +297,7 @@ void kernel_round0(__global ulong *blake_state, __global char *ht,
         mix(v[1], v[6], v[11], v[12], 0, 0);
         mix(v[2], v[7], v[8],  v[13], 0, 0);
         mix(v[3], v[4], v[9],  v[14], 0, 0);
-        // round 2 
+        // round 2
         mix(v[0], v[4], v[8],  v[12], 0, 0);
         mix(v[1], v[5], v[9],  v[13], 0, 0);
         mix(v[2], v[6], v[10], v[14], 0, 0);
@@ -305,7 +306,7 @@ void kernel_round0(__global ulong *blake_state, __global char *ht,
         mix(v[1], v[6], v[11], v[12], 0, 0);
         mix(v[2], v[7], v[8],  v[13], 0, 0);
         mix(v[3], v[4], v[9],  v[14], 0, 0);
-        // round 3 
+        // round 3
         mix(v[0], v[4], v[8],  v[12], 0, 0);
         mix(v[1], v[5], v[9],  v[13], 0, 0);
         mix(v[2], v[6], v[10], v[14], 0, 0);
@@ -314,7 +315,7 @@ void kernel_round0(__global ulong *blake_state, __global char *ht,
         mix(v[1], v[6], v[11], v[12], 0, 0);
         mix(v[2], v[7], v[8],  v[13], 0, word1);
         mix(v[3], v[4], v[9],  v[14], 0, 0);
-        // round 4 
+        // round 4
         mix(v[0], v[4], v[8],  v[12], 0, 0);
         mix(v[1], v[5], v[9],  v[13], 0, word1);
         mix(v[2], v[6], v[10], v[14], 0, 0);
@@ -323,7 +324,7 @@ void kernel_round0(__global ulong *blake_state, __global char *ht,
         mix(v[1], v[6], v[11], v[12], 0, 0);
         mix(v[2], v[7], v[8],  v[13], 0, 0);
         mix(v[3], v[4], v[9],  v[14], 0, 0);
-        // round 5 
+        // round 5
         mix(v[0], v[4], v[8],  v[12], 0, 0);
         mix(v[1], v[5], v[9],  v[13], 0, 0);
         mix(v[2], v[6], v[10], v[14], 0, 0);
@@ -332,7 +333,7 @@ void kernel_round0(__global ulong *blake_state, __global char *ht,
         mix(v[1], v[6], v[11], v[12], 0, 0);
         mix(v[2], v[7], v[8],  v[13], 0, 0);
         mix(v[3], v[4], v[9],  v[14], 0, 0);
-        // round 6 
+        // round 6
         mix(v[0], v[4], v[8],  v[12], 0, 0);
         mix(v[1], v[5], v[9],  v[13], 0, 0);
         mix(v[2], v[6], v[10], v[14], 0, 0);
@@ -341,7 +342,7 @@ void kernel_round0(__global ulong *blake_state, __global char *ht,
         mix(v[1], v[6], v[11], v[12], 0, 0);
         mix(v[2], v[7], v[8],  v[13], 0, 0);
         mix(v[3], v[4], v[9],  v[14], word1, 0);
-        // round 7 
+        // round 7
         mix(v[0], v[4], v[8],  v[12], 0, 0);
         mix(v[1], v[5], v[9],  v[13], word1, 0);
         mix(v[2], v[6], v[10], v[14], 0, 0);
@@ -350,7 +351,7 @@ void kernel_round0(__global ulong *blake_state, __global char *ht,
         mix(v[1], v[6], v[11], v[12], 0, 0);
         mix(v[2], v[7], v[8],  v[13], 0, 0);
         mix(v[3], v[4], v[9],  v[14], 0, 0);
-        // round 8 
+        // round 8
         mix(v[0], v[4], v[8],  v[12], 0, 0);
         mix(v[1], v[5], v[9],  v[13], 0, 0);
         mix(v[2], v[6], v[10], v[14], 0, word1);
@@ -359,7 +360,7 @@ void kernel_round0(__global ulong *blake_state, __global char *ht,
         mix(v[1], v[6], v[11], v[12], 0, 0);
         mix(v[2], v[7], v[8],  v[13], 0, 0);
         mix(v[3], v[4], v[9],  v[14], 0, 0);
-        // round 9 
+        // round 9
         mix(v[0], v[4], v[8],  v[12], 0, 0);
         mix(v[1], v[5], v[9],  v[13], 0, 0);
         mix(v[2], v[6], v[10], v[14], 0, 0);
@@ -368,7 +369,7 @@ void kernel_round0(__global ulong *blake_state, __global char *ht,
         mix(v[1], v[6], v[11], v[12], 0, 0);
         mix(v[2], v[7], v[8],  v[13], word1, 0);
         mix(v[3], v[4], v[9],  v[14], 0, 0);
-        // round 10 
+        // round 10
         mix(v[0], v[4], v[8],  v[12], 0, 0);
         mix(v[1], v[5], v[9],  v[13], 0, 0);
         mix(v[2], v[6], v[10], v[14], 0, 0);
@@ -377,7 +378,7 @@ void kernel_round0(__global ulong *blake_state, __global char *ht,
         mix(v[1], v[6], v[11], v[12], 0, 0);
         mix(v[2], v[7], v[8],  v[13], 0, 0);
         mix(v[3], v[4], v[9],  v[14], 0, 0);
-        // round 11 
+        // round 11
         mix(v[0], v[4], v[8],  v[12], 0, word1);
         mix(v[1], v[5], v[9],  v[13], 0, 0);
         mix(v[2], v[6], v[10], v[14], 0, 0);
@@ -386,7 +387,7 @@ void kernel_round0(__global ulong *blake_state, __global char *ht,
         mix(v[1], v[6], v[11], v[12], 0, 0);
         mix(v[2], v[7], v[8],  v[13], 0, 0);
         mix(v[3], v[4], v[9],  v[14], 0, 0);
-        // round 12 
+        // round 12
         mix(v[0], v[4], v[8],  v[12], 0, 0);
         mix(v[1], v[5], v[9],  v[13], 0, 0);
         mix(v[2], v[6], v[10], v[14], 0, 0);
@@ -569,8 +570,8 @@ void equihash_round(uint round, __global char *ht_src, __global char *ht_dst,
     uchar		mask;
     uint                i, j;
     // NR_SLOTS is already oversized (by a factor of OVERHEAD), but we want to
-    // make it twice larger
-    ushort		collisions[NR_SLOTS * 2];
+    // make it even larger
+    ushort		collisions[NR_SLOTS * 3];
     uint                nr_coll = 0;
     uint                n;
     uint                dropped_coll, dropped_stor;
@@ -638,7 +639,7 @@ void equihash_round(uint round, __global char *ht_src, __global char *ht_dst,
 }
 
 /*
-** This defines kernel_round1, kernel_round2, ..., kernel_round8.
+** This defines kernel_round1, kernel_round2, ..., kernel_round7.
 */
 #define KERNEL_ROUND(N) \
 __kernel __attribute__((reqd_work_group_size(64, 1, 1))) \
@@ -654,7 +655,17 @@ KERNEL_ROUND(4)
 KERNEL_ROUND(5)
 KERNEL_ROUND(6)
 KERNEL_ROUND(7)
-KERNEL_ROUND(8)
+
+// kernel_round8 takes an extra argument, "sols"
+__kernel __attribute__((reqd_work_group_size(64, 1, 1)))
+void kernel_round8(__global char *ht_src, __global char *ht_dst,
+	__global uint *debug, __global sols_t *sols)
+{
+    uint                tid = get_global_id(0);
+    equihash_round(8, ht_src, ht_dst, debug);
+    if (!tid)
+	sols->nr = sols->likely_invalids = 0;
+}
 
 uint expand_ref(__global char *ht, uint xi_offset, uint row, uint slot)
 {
@@ -734,9 +745,6 @@ void kernel_sols(__global char *ht0, __global char *ht1, __global sols_t *sols)
 #else
 #error "unsupported NR_ROWS_LOG"
 #endif
-    if (tid == 0)
-	sols->nr = sols->likely_invalids = 0;
-    mem_fence(CLK_GLOBAL_MEM_FENCE); // for tid 0 initializing struct above
     a = htabs[ht_i] + tid * NR_SLOTS * SLOT_LEN;
     cnt = *(__global uint *)a;
     cnt = min(cnt, (uint)NR_SLOTS); // handle possible overflow in last round

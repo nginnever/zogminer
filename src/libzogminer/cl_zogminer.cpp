@@ -440,6 +440,9 @@ void cl_zogminer::run(uint8_t *header, size_t header_len, uint64_t nonce, sols_t
 			
 			m_zogKernels[1+round].setArg(2, buf_dbg);
 
+			if (round == PARAM_K - 1)
+				m_zogKernels[1+round].setArg(3, buf_sols);
+
 			m_queue.enqueueNDRangeKernel(m_zogKernels[1+round], cl::NullRange, cl::NDRange(global_ws), cl::NDRange(local_ws));
 		
 		}

@@ -22,11 +22,11 @@
 #if NR_ROWS_LOG == 16
 #define OVERHEAD                        3
 #elif NR_ROWS_LOG == 18
-#define OVERHEAD                        5
+#define OVERHEAD                        3
 #elif NR_ROWS_LOG == 19
-#define OVERHEAD                        9
+#define OVERHEAD                        5
 #elif NR_ROWS_LOG == 20
-#define OVERHEAD                        13
+#define OVERHEAD                        9
 #endif
 
 #define NR_ROWS                         (1 << NR_ROWS_LOG)
@@ -60,7 +60,7 @@
 typedef struct	sols_s
 {
     uint	nr;
-    uint	likely_invalidss;
+    uint	likely_invalids;
     uchar	valid[MAX_SOLS];
     uint	values[MAX_SOLS][(1 << PARAM_K)];
 }		sols_t;
