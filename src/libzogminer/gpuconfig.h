@@ -31,6 +31,7 @@ public:
 	//~GPUConfig();
 	
 	bool useGPU;
+	unsigned platformId;
 	int64_t selGPU;
 	unsigned globalWorkSize;
 	unsigned workgroupSize;
