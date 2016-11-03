@@ -12,6 +12,7 @@
 #include "version.h"
 
 #include "libzogminer/gpusolver.h"
+#include "libstratum/speed.hpp"
 
 #include <atomic>
 
@@ -34,12 +35,12 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos, GPUConfig con
     std::atomic_bool cancelSolver {false};
 
     GPUSolver * solver;
-	if(conf.useGPU)
-    	solver = new GPUSolver(conf.selGPU);
+    if(conf.useGPU)
+        solver = new GPUSolver(conf.selGPU);
 
-	//TODO Free
-	uint8_t * tmp_header = (uint8_t *) calloc(ZCASH_BLOCK_HEADER_LEN, sizeof(uint8_t));
-	uint64_t nn= 0;
+    //TODO Free
+    uint8_t * tmp_header = (uint8_t *) calloc(ZCASH_BLOCK_HEADER_LEN, sizeof(uint8_t));
+    uint64_t nn= 0;
 
     miner->NewJob.connect(NewJob_t::slot_type(
         [&m_zmt, &header, &space, &offset, &inc, &target, &workReady, &cancelSolver]
@@ -91,12 +92,12 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos, GPUConfig con
             // I = the block header minus nonce and solution.
             CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
             {
-                std::lock_guard<std::mutex> lock{*m_zmt.get()};
+                //std::lock_guard<std::mutex> lock{*m_zmt.get()};
                 CEquihashInput I{header};
                 ss << I;
             }
-		
-			memcpy(tmp_header, &ss[0], ss.size());
+        
+            memcpy(tmp_header, &ss[0], ss.size());
 
             // H(I||...
             crypto_generichash_blake2b_update(&state, (unsigned char*)&ss[0], ss.size());
@@ -108,8 +109,8 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos, GPUConfig con
                 curr_state = state;
                 auto bNonce = ArithToUint256(nonce);
 
-				for (size_t i = 0; i < ZCASH_NONCE_LEN; ++i)
-					tmp_header[108 + i] = bNonce.begin()[i];
+                for (size_t i = 0; i < ZCASH_NONCE_LEN; ++i)
+                    tmp_header[108 + i] = bNonce.begin()[i];
 
                 // (x_1, x_2, ...) = A(I, V, n, k)
                 LogPrint("pow", "Running Equihash solver with nNonce = %s\n",
@@ -118,11 +119,13 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos, GPUConfig con
                 std::function<bool(std::vector<unsigned char>)> validBlock =
                         [&m_zmt, &header, &bNonce, &target, &miner]
                         (std::vector<unsigned char> soln) {
-                    std::lock_guard<std::mutex> lock{*m_zmt.get()};
+                    //std::lock_guard<std::mutex> lock{*m_zmt.get()};
                     // Write the solution to the hash and compute the result.
                     LogPrint("pow", "- Checking solution against target...");
                     header.nNonce = bNonce;
                     header.nSolution = soln;
+
+                    speed.AddSolution();
 
                     if (UintToArith256(header.GetHash()) > target) {
                         LogPrint("pow", " too large.\n");
@@ -142,22 +145,22 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos, GPUConfig con
                     boost::this_thread::interruption_point();
                     return cancelSolver.load();
                 };
-				std::function<bool(EhSolverCancelCheck)> cancelled =
+                std::function<bool(EhSolverCancelCheck)> cancelled =
                         [&cancelSolver](EhSolverCancelCheck pos) {
                     boost::this_thread::interruption_point();
                     return cancelSolver.load();
                 };
                 try {
                     // If we find a valid block, we get more work
-					if(!conf.useGPU) {
-                		if (EhOptimisedSolve(n, k, curr_state, validBlock, cancelled)) {
-		                    break;
-		                }
-					} else {
-						if (solver->run(n, k, tmp_header, ZCASH_BLOCK_HEADER_LEN, *((uint64_t *)(bNonce.begin()+sizeof(uint64_t)+4)), validBlock, cancelledGPU, curr_state)) {
-		                    break;
-		                }
-					}
+                    if(!conf.useGPU) {
+                        if (EhOptimisedSolve(n, k, curr_state, validBlock, cancelled)) {
+                            break;
+                        }
+                    } else {
+                        if (solver->run(n, k, tmp_header, ZCASH_BLOCK_HEADER_LEN, *((uint64_t *)(bNonce.begin()+sizeof(uint64_t)+4)), validBlock, cancelledGPU, curr_state)) {
+                            break;
+                        }
+                    }
                     
                 } catch (GPUSolverCancelledException&) {
                     LogPrint("pow", "Equihash solver cancelled\n");
@@ -186,26 +189,26 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos, GPUConfig con
     catch (const boost::thread_interrupted&)
     {
         LogPrintf("ZcashMinerThread terminated\n");
-		if(conf.useGPU)
-			delete solver;
-		if(tmp_header)
-			free(tmp_header);
+        if(conf.useGPU)
+            delete solver;
+        if(tmp_header)
+            free(tmp_header);
         throw;
     }
     catch (const std::runtime_error &e)
     {
         LogPrintf("ZcashMinerThread runtime error: %s\n", e.what());
-		if(conf.useGPU)
-			delete solver;
-		if(tmp_header)
-			free(tmp_header);
+        if(conf.useGPU)
+            delete solver;
+        if(tmp_header)
+            free(tmp_header);
         return;
     }
 
-	if(conf.useGPU)
-		delete solver;
-	if(tmp_header)
-			free(tmp_header);
+    if(conf.useGPU)
+        delete solver;
+    if(tmp_header)
+            free(tmp_header);
 
 }
 
@@ -248,7 +251,7 @@ bool ZcashJob::evalSolution(const EquihashSolution* solution)
     CDataStream ss(SER_NETWORK, PROTOCOL_VERSION);
     ss << I;
     ss << solution->nonce;
-	
+    
     // H(I||V||...
     crypto_generichash_blake2b_update(&state, (unsigned char*)&ss[0], ss.size());
 

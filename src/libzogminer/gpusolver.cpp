@@ -178,11 +178,6 @@ bool GPUSolver::GPUSolve200_9(uint8_t *header, size_t header_len, uint64_t nonce
 		uint64_t ptr;
     	miner->run(header, header_len, nonce, indices, &n_sol, &ptr);
 
-		uint256 nNonce = ArithToUint256(ptr);
-			crypto_generichash_blake2b_update(&base_state,
-                                              nNonce.begin(),
-                                              nNonce.size());
-
 		auto d = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t);
 		auto milis = std::chrono::duration_cast<std::chrono::milliseconds>(d).count();
 
@@ -200,9 +195,8 @@ bool GPUSolver::GPUSolve200_9(uint8_t *header, size_t header_len, uint64_t nonce
 		size_t checkedSols = n_sol;
 		size_t s = 0;
 //		size_t t = 0;
-        /*while (checkedSols) {
+        while (checkedSols) {
 			++s;
-			++t;
 			if(indices->valid[s-1])
         		--checkedSols;
 			else 
@@ -234,7 +228,7 @@ bool GPUSolver::GPUSolve200_9(uint8_t *header, size_t header_len, uint64_t nonce
 				  //std::cout << "Valid block found!" << std::endl;
               	  return true;
             }
-        }*/
+        }
 
 		//free(indices);
 
