@@ -41,7 +41,7 @@ char *s_hexdump(const void *_a, uint32_t a_len)
 	return buf;
 }
 
-GPUSolver::GPUSolver() {
+GPUSolver::GPUSolver(unsigned platformId) {
 
 	/* Notes
 	I've added some extra parameters in this interface to assist with dev, such as
@@ -72,7 +72,7 @@ GPUSolver::GPUSolver() {
 	@params: unsigned localWorkSizes
 	@params: unsigned globalWorkSizes
 	*/
-	GPU = miner->configureGPU(0, local_work_size, global_work_size);
+	GPU = miner->configureGPU(platformId, local_work_size, global_work_size);
 	if(!GPU)
 		std::cout << "ERROR: No suitable GPU found! No work will be performed!" << std::endl;
 
@@ -86,11 +86,11 @@ GPUSolver::GPUSolver() {
 	std::vector<std::string> kernels {"kernel_init_ht", "kernel_round0", "kernel_round1", "kernel_round2","kernel_round3", "kernel_round4", "kernel_round5", "kernel_round6", "kernel_round7", "kernel_round8", "kernel_sols"};
 
 	if(GPU)
-		initOK = miner->init(0, 0, kernels);
+		initOK = miner->init(platformId, 0, kernels);
 
 }
 
-GPUSolver::GPUSolver(int64_t selGPU) {
+GPUSolver::GPUSolver(unsigned platformId, int64_t selGPU) {
 
 	/* Notes
 	I've added some extra parameters in this interface to assist with dev, such as
@@ -121,7 +121,7 @@ GPUSolver::GPUSolver(int64_t selGPU) {
 	@params: unsigned localWorkSizes
 	@params: unsigned globalWorkSizes
 	*/
-	GPU = miner->configureGPU(0, local_work_size, global_work_size);
+	GPU = miner->configureGPU(platformId, local_work_size, global_work_size);
 	if(!GPU)
 		std::cout << "ERROR: No suitable GPU found! No work will be performed!" << std::endl;
 
@@ -134,7 +134,7 @@ GPUSolver::GPUSolver(int64_t selGPU) {
 	*/
 	std::vector<std::string> kernels {"kernel_init_ht", "kernel_round0", "kernel_round1", "kernel_round2","kernel_round3", "kernel_round4", "kernel_round5", "kernel_round6", "kernel_round7", "kernel_round8", "kernel_sols"};
 	if(GPU)
-		initOK = miner->init(0, selGPU, kernels);
+		initOK = miner->init(platformId, selGPU, kernels);
 
 }
 

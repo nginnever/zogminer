@@ -107,7 +107,7 @@ void test_mine(int n, int k, uint32_t d, GPUConfig conf)
     arith_uint256 hashTarget = arith_uint256().SetCompact(d);
 	GPUSolver * solver;
 	if(conf.useGPU)
-    	solver = new GPUSolver(conf.selGPU);
+    	solver = new GPUSolver(conf.platformId, conf.selGPU);
 
 	uint64_t nn= 0;
 	//TODO Free
@@ -246,6 +246,7 @@ int main(int argc, char* argv[])
 
 	conf.useGPU = GetBoolArg("-G", false);
 	conf.selGPU = GetArg("-S", 0);
+	conf.platformId = GetArg("-P", 0);
 	//std::cout << GPU << " " << selGPU << std::endl;
 
     // Zcash debugging
