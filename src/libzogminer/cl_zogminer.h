@@ -210,12 +210,6 @@ private:
 	cl::Context m_context;
 	cl::CommandQueue m_queue;
 	std::vector<cl::Kernel> m_zogKernels;
-	/*cl::Buffer m_digests[2];
-	cl::Buffer m_buckets;
-	cl::Buffer m_new_digest_index;
-	cl::Buffer m_blake2b_digest;
-	cl::Buffer m_dst_solutions;
-	cl::Buffer m_n_solutions;*/
 	cl::Buffer buf_ht[2];
 	cl::Buffer buf_sols;
 	cl::Buffer buf_dbg;
@@ -227,6 +221,7 @@ private:
 	const cl_int zero = 0;
 	uint32_t solutions;
 	uint32_t * dst_solutions;
+	sols_t	* sols;
 
 	unsigned m_globalWorkSize;
 	bool m_openclOnePointOne;

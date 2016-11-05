@@ -416,10 +416,7 @@ void cl_zogminer::run(uint8_t *header, size_t header_len, uint64_t nonce, sols_t
 
 		zcash_blake2b_init(&blake, ZCASH_HASH_LEN, PARAM_N, PARAM_K);
 		zcash_blake2b_update(&blake, header, 128, 0);
-		buf_blake_st = cl::Buffer(m_context, CL_MEM_READ_ONLY, sizeof (blake.h), NULL, NULL);
-		m_queue.enqueueWriteBuffer(buf_blake_st, true, 0, sizeof(blake.h), blake.h);
-
-		m_queue.finish();
+		buf_blake_st = cl::Buffer(m_context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof (blake.h), &blake.h, NULL);
 
 		for (unsigned round = 0; round < PARAM_K; round++) {
 
@@ -453,18 +450,18 @@ void cl_zogminer::run(uint8_t *header, size_t header_len, uint64_t nonce, sols_t
 		global_ws = NR_ROWS;
 		m_queue.enqueueNDRangeKernel(m_zogKernels[10], cl::NullRange, cl::NDRange(global_ws), cl::NDRange(local_ws)); 
 
-		sols_t	* sols;
-		sols = (sols_t *)malloc(sizeof(*sols));
+		
+		//sols = (sols_t *)malloc(sizeof(*sols));
+		sols = (sols_t *) m_queue.enqueueMapBuffer(buf_sols, true, CL_MAP_READ, 0, sizeof (*sols));
 
-		m_queue.enqueueReadBuffer(buf_sols, true, 0, sizeof (*sols), sols);
+		//m_queue.enqueueReadBuffer(buf_sols, true, 0, sizeof (*sols), sols);
 
-		m_queue.finish();
+		//m_queue.finish();
 
-		if (sols->nr > MAX_SOLS) {
-			/*fprintf(stderr, "%d (probably invalid) solutions were dropped!\n",
-			sols->nr - MAX_SOLS);*/
+		
+
+		if (sols->nr > MAX_SOLS)
 			sols->nr = MAX_SOLS;
-		}
 
 		for (unsigned sol_i = 0; sol_i < sols->nr; sol_i++)
 			sol_found += verify_sol(sols, sol_i);
@@ -474,7 +471,7 @@ void cl_zogminer::run(uint8_t *header, size_t header_len, uint64_t nonce, sols_t
 		*n_sol = sol_found;
 		memcpy(indices, sols, sizeof(sols_t));
 
-		free(sols);
+		m_queue.enqueueUnmapMemObject(buf_sols, sols);
 
 	}
 	catch (cl::Error const& err)
