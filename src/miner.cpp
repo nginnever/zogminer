@@ -584,7 +584,7 @@ void static BitcoinMiner(CWallet *pwallet, GPUConfig conf)
 		                    break;
 		                }
 					} else {
-						if (solver->run(n, k, tmp_header, ZCASH_BLOCK_HEADER_LEN, *((uint64_t *)(pblock->nNonce.begin()+sizeof(uint64_t)+4)), validBlock, cancelledGPU, curr_state)) {
+						if (solver->run(n, k, tmp_header, ZCASH_BLOCK_HEADER_LEN, validBlock, cancelledGPU, curr_state)) {
 		                    break;
 		                }
 					}

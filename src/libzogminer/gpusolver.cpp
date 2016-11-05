@@ -150,20 +150,20 @@ GPUSolver::~GPUSolver() {
 
 }
 
-bool GPUSolver::run(unsigned int n, unsigned int k, uint8_t *header, size_t header_len, uint64_t nonce,
+bool GPUSolver::run(unsigned int n, unsigned int k, uint8_t *header, size_t header_len,
 		            const std::function<bool(std::vector<unsigned char>)> validBlock,
 				const std::function<bool(GPUSolverCancelCheck)> cancelled,
 			crypto_generichash_blake2b_state base_state) {
 
     if (n == 200 && k == 9) {
-        return GPUSolve200_9(header, header_len, nonce, validBlock, cancelled, base_state);
+        return GPUSolve200_9(header, header_len, validBlock, cancelled, base_state);
     } else {
         throw std::invalid_argument("Unsupported Equihash parameters");
     }
 
 }
 
-bool GPUSolver::GPUSolve200_9(uint8_t *header, size_t header_len, uint64_t nonce,
+bool GPUSolver::GPUSolve200_9(uint8_t *header, size_t header_len,
                  	const std::function<bool(std::vector<unsigned char>)> validBlock,
 			const std::function<bool(GPUSolverCancelCheck)> cancelled,
 		crypto_generichash_blake2b_state base_state) {
@@ -176,7 +176,7 @@ bool GPUSolver::GPUSolve200_9(uint8_t *header, size_t header_len, uint64_t nonce
 	if(GPU && initOK) {
         auto t = std::chrono::high_resolution_clock::now();
 		uint64_t ptr;
-    	miner->run(header, header_len, nonce, indices, &n_sol, &ptr);
+    	miner->run(header, header_len, indices, &n_sol, &ptr);
 
 		auto d = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - t);
 		auto milis = std::chrono::duration_cast<std::chrono::milliseconds>(d).count();

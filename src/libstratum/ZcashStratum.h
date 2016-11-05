@@ -21,6 +21,8 @@ using namespace json_spirit;
 struct EquihashSolution
 {
     uint256 nonce;
+    std::string time;
+    size_t nonce1size;
     std::vector<unsigned char> solution;
 
     EquihashSolution(uint256 n, std::vector<unsigned char> s)
@@ -39,6 +41,7 @@ struct ZcashJob
     arith_uint256 nonce2Inc;
     arith_uint256 serverTarget;
     bool clean;
+    //std::string jobId() const { return job; }
 
     ZcashJob* clone() const;
     bool equals(const ZcashJob& a) const { return job == a.job; }
@@ -89,7 +92,7 @@ public:
     void start();
     void stop();
     bool isMining() { return minerThreads; }
-    void setServerNonce(const Array& params);
+    void setServerNonce(const std::string& n1str);
     ZcashJob* parseJob(const Array& params);
     void setJob(ZcashJob* job);
     void onSolutionFound(const std::function<bool(const EquihashSolution&)> callback);

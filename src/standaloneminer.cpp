@@ -32,6 +32,8 @@
 #include "util.h"
 #include "utiltime.h"
 #include "version.h"
+#include "libstratum/speed.hpp"
+#include "libstratum/api.hpp"
 
 #include "libzogminer/gpusolver.h"
 #include "libzogminer/gpuconfig.h"
@@ -183,7 +185,7 @@ void test_mine(int n, int k, uint32_t d, GPUConfig conf)
 				if(!conf.useGPU)
                 	foundBlock = EhOptimisedSolve(n, k, curr_state, validBlock, cancelled);
 				else
-					foundBlock = solver->run(n, k, header, ZCASH_BLOCK_HEADER_LEN - ZCASH_NONCE_LEN, nn++, validBlock, cancelledGPU, curr_state);
+					foundBlock = solver->run(n, k, header, ZCASH_BLOCK_HEADER_LEN - ZCASH_NONCE_LEN, validBlock, cancelledGPU, curr_state);
                     uint64_t solve_end = rdtsc();
                     LogPrint("cycles", "Solver took %2.2f Mcycles\n\n",
                     (double)(solve_end - solve_start) / (1UL << 20));
@@ -280,6 +282,20 @@ int main(int argc, char* argv[])
         std::string host;
         std::string port;
         std::string stratumServer = stratum.substr(14);
+        std::shared_ptr<boost::asio::io_service> io_service(new boost::asio::io_service);
+
+        API* api = nullptr;
+/*        if (api_port > 0)
+        {
+            api = new API(io_service);
+            if (!api->start(api_port))
+            {
+                delete api;
+                api = nullptr;
+            }
+        }  */      
+
+
         size_t delim = stratumServer.find(':');
         if (delim != std::string::npos) {
             host = stratumServer.substr(0, delim);
@@ -292,22 +308,38 @@ int main(int argc, char* argv[])
 
         ZcashMiner miner(GetArg("-genproclimit", 1), conf);
         ZcashStratumClient sc {
+            io_service,
             &miner, host, port,
             GetArg("-user", "x"),
             GetArg("-password", "x"),
             0, 0
         };
 
-        miner.onSolutionFound([&](const EquihashSolution& solution) {
-            return sc.submit(&solution);
-        });
+/*        miner.onSolutionFound([&](const EquihashSolution& solution) {
+            return sc.submit(&solution, const std::string& jobid);
+        });*/
 
         scSig = &sc;
         signal(SIGINT, stratum_sigint_handler);
 
-        while(sc.isRunning()) {
+/*        while(sc.isRunning()) {
             MilliSleep(1000);
+        }*/
+
+
+        int c = 0;
+        while (sc.isRunning()) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            if (++c % 1000 == 0)
+            {
+                double allshares = speed.GetShareSpeed() * 60;
+                double accepted = speed.GetShareOKSpeed() * 60;
+            }
+            if (api) while (api->poll()) {}
         }
+
+        if (api) delete api;
+
     } else {
         std::cout << "Running the test miner" << std::endl;
         test_mine(

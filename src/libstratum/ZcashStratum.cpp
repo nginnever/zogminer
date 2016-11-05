@@ -10,9 +10,9 @@
 #include "crypto/equihash.h"
 #include "streams.h"
 #include "version.h"
+#include "speed.hpp"
 
 #include "libzogminer/gpusolver.h"
-#include "libstratum/speed.hpp"
 
 #include <atomic>
 
@@ -157,7 +157,7 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos, GPUConfig con
                             break;
                         }
                     } else {
-                        if (solver->run(n, k, tmp_header, ZCASH_BLOCK_HEADER_LEN, *((uint64_t *)(bNonce.begin()+sizeof(uint64_t)+4)), validBlock, cancelledGPU, curr_state)) {
+                        if (solver->run(n, k, tmp_header, ZCASH_BLOCK_HEADER_LEN, validBlock, cancelledGPU, curr_state)) {
                             break;
                         }
                     }
@@ -296,6 +296,9 @@ void ZcashMiner::start()
         stop();
     }
 
+    speed.Reset();
+    //m_isActive = true;
+
     if (nThreads == 0) {
         return;
     }
@@ -315,9 +318,9 @@ void ZcashMiner::stop()
     }
 }
 
-void ZcashMiner::setServerNonce(const Array& params)
+void ZcashMiner::setServerNonce(const std::string& n1str)
 {
-    auto n1str = params[1].get_str();
+    //auto n1str = params[1].get_str();
     std::vector<unsigned char> nonceData(ParseHex(n1str));
     while (nonceData.size() < 32) {
         nonceData.push_back(0);

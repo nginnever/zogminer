@@ -409,7 +409,7 @@ bool cl_zogminer::init(
 }
 
 
-void cl_zogminer::run(uint8_t *header, size_t header_len, uint64_t nonce, sols_t * indices, uint32_t * n_sol, uint64_t * ptr)
+void cl_zogminer::run(uint8_t *header, size_t header_len, sols_t * indices, uint32_t * n_sol, uint64_t * ptr)
 {
 	try
 	{
@@ -428,7 +428,7 @@ void cl_zogminer::run(uint8_t *header, size_t header_len, uint64_t nonce, sols_t
 			memset(nonce_ptr, 0, ZCASH_NONCE_LEN);
     	// add the nonce
     	//*nonce_ptr += nonce;
-		*ptr = *nonce_ptr;
+		//*ptr = *nonce_ptr;
 
 		//printf("\nSolving nonce %s\n", s_hexdump(nonce_ptr, ZCASH_NONCE_LEN));
 

@@ -94,7 +94,7 @@ public:
 		std::vector<std::string> _kernels
 	);
 
-	void run(uint8_t *header, size_t header_len, uint64_t nonce, sols_t * indices, uint32_t * n_sol, uint64_t * ptr);
+	void run(uint8_t *header, size_t header_len, sols_t * indices, uint32_t * n_sol, uint64_t * ptr);
 
 	void finish();
 

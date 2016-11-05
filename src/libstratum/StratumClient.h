@@ -10,7 +10,9 @@
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
+#include <mutex>
 #include <thread>
+#include <atomic>
 
 #include "json/json_spirit_value.h"
 
@@ -31,7 +33,7 @@ template <typename Miner, typename Job, typename Solution>
 class StratumClient
 {
 public:
-    StratumClient(Miner * m,
+    StratumClient(std::shared_ptr<boost::asio::io_service> io_s, Miner * m,
                   string const & host, string const & port,
                   string const & user, string const & pass,
                   int const & retries, int const & worktimeout);
@@ -44,7 +46,7 @@ public:
     bool isRunning() { return m_running; }
     bool isConnected() { return m_connected && m_authorized; }
     bool current() { return p_current; }
-    bool submit(const Solution* solution);
+    bool submit(const Solution* solution, const std::string& jobid);
     void reconnect();
     void disconnect();
 
@@ -89,6 +91,9 @@ private:
     boost::asio::deadline_timer * p_worktimer;
 
     string m_nextJobTarget;
+
+    std::atomic_int m_share_id;
+    unsigned char o_index;
 };
 
 typedef StratumClient<ZcashMiner, ZcashJob, EquihashSolution> ZcashStratumClient;
