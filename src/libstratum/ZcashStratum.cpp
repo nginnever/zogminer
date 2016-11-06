@@ -35,7 +35,7 @@ void static ZcashMinerThread(ZcashMiner* miner, int size, int pos, GPUConfig con
 
     GPUSolver * solver;
 	if(conf.useGPU)
-    	solver = new GPUSolver(conf.selGPU);
+    	solver = new GPUSolver(conf.platformId, conf.selGPU);
 
 	//TODO Free
 	uint8_t * tmp_header = (uint8_t *) calloc(ZCASH_BLOCK_HEADER_LEN, sizeof(uint8_t));

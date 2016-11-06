@@ -457,7 +457,7 @@ void static BitcoinMiner(CWallet *pwallet, GPUConfig conf)
 
     GPUSolver * solver;
 	if(conf.useGPU)
-    	solver = new GPUSolver(conf.selGPU);
+    	solver = new GPUSolver(conf.platformId, conf.selGPU);
 
 	uint8_t * tmp_header = (uint8_t *) calloc(ZCASH_BLOCK_HEADER_LEN, sizeof(uint8_t));
 	uint64_t nn= 0;
