@@ -527,7 +527,7 @@ fi
 BITCOIN_QT_INIT
 
 dnl sets $bitcoin_enable_qt, $bitcoin_enable_qt_test, $bitcoin_enable_qt_dbus
-BITCOIN_QT_CONFIGURE([$use_pkgconfig], [qt4])
+#BITCOIN_QT_CONFIGURE([$use_pkgconfig], [qt4])
 
 if test x$build_bitcoin_utils$build_bitcoind$bitcoin_enable_qt$use_tests = xnononono; then
     use_boost=no
@@ -720,7 +720,7 @@ CPPFLAGS="-I$LIBSNARK_INCDIR $CPPFLAGS"
 AC_CHECK_HEADER([libsnark/gadgetlib1/gadget.hpp],,AC_MSG_ERROR(libsnark headers missing))
 AC_CHECK_LIB([snark],[main],LIBSNARK_LIBS=-lsnark, [AC_MSG_ERROR(libsnark missing)], [-lgmpxx])
 
-LIBZCASH_LIBS="-lsnark -lgmp -lgmpxx -lboost_system-mt -lcrypto -lsodium -fopenmp"
+LIBZCASH_LIBS="-lsnark -lgmp -lgmpxx -lboost_system-mt -lssl -lcrypto -lsodium -fopenmp"
 LIBZOGMINER_LIBS="-lOpenCL"
 
 CXXFLAGS_TEMP="$CXXFLAGS"
