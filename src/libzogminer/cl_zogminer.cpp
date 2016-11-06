@@ -433,8 +433,10 @@ void cl_zogminer::run(uint8_t *header, size_t header_len, uint64_t nonce, sols_t
 
 			size_t      global_ws = NR_ROWS;
 			
-			m_zogKernels[0].setArg(0, buf_ht[round % 2]);
-			m_queue.enqueueNDRangeKernel(m_zogKernels[0], cl::NullRange, cl::NDRange(global_ws), cl::NDRange(local_ws));
+			if (round < 2) {
+				m_zogKernels[0].setArg(0, buf_ht[round % 2]);
+				m_queue.enqueueNDRangeKernel(m_zogKernels[0], cl::NullRange, cl::NDRange(global_ws), cl::NDRange(local_ws));
+			}
 			
 			if (!round) {
 				m_zogKernels[1+round].setArg(0, buf_blake_st);
