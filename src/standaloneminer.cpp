@@ -82,6 +82,7 @@ std::string HelpMessageMiner()
                                              "solved instantly. This is intended for regression testing tools and app development."));
     strUsage += HelpMessageOpt("-testnet", _("Use the test network"));
 	strUsage += HelpMessageOpt("-G", _("GPU mine"));
+	strUsage += HelpMessageOpt("-P=<platformid>", _("Select OpenCL platform (default: 0)"));
 	strUsage += HelpMessageOpt("-S=<deviceid>", _("Select GPU device (default: 0)"));
 	strUsage += HelpMessageOpt("-listdevices", _("List available OpenCL devices"));
 
