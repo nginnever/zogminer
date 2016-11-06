@@ -30,7 +30,7 @@ using namespace std;
 unsigned const cl_zogminer::c_defaultLocalWorkSize = 32;
 unsigned const cl_zogminer::c_defaultGlobalWorkSizeMultiplier = 4096; // * CL_DEFAULT_LOCAL_WORK_SIZE
 unsigned const cl_zogminer::c_defaultMSPerBatch = 0;
-bool cl_zogminer::s_allowCPU = false;
+bool cl_zogminer::s_allowCPU = true;
 unsigned cl_zogminer::s_extraRequiredGPUMem;
 unsigned cl_zogminer::s_msPerBatch = cl_zogminer::c_defaultMSPerBatch;
 unsigned cl_zogminer::s_workgroupSize = cl_zogminer::c_defaultLocalWorkSize;
@@ -219,16 +219,24 @@ bool cl_zogminer::searchForAllDevices(unsigned _platformId, function<bool(cl::De
 	return false;
 }
 
-void cl_zogminer::doForAllDevices(function<void(cl::Device const&)> _callback)
+void cl_zogminer::doForAllDevices(function<void(unsigned _plat, unsigned _dev, cl::Device const&)> _callback)
 {
 	vector<cl::Platform> platforms = getPlatforms();
 	if (platforms.empty())
 		return;
-	for (unsigned i = 0; i < platforms.size(); ++i)
+
+	std::string info = "\nListing OpenCL platforms.\nFORMAT: [platformID] platformName\n";
+
+	for (unsigned i = 0; i < platforms.size(); ++i) {
+		info += "[" + to_string(i) + "] " + platforms[i].getInfo<CL_PLATFORM_NAME>() + "\n";
 		doForAllDevices(i, _callback);
+	}
+
+	CL_LOG(info);
+
 }
 
-void cl_zogminer::doForAllDevices(unsigned _platformId, function<void(cl::Device const&)> _callback)
+void cl_zogminer::doForAllDevices(unsigned _platformId, function<void(unsigned _plat, unsigned _dev, cl::Device const&)> _callback)
 {
 	vector<cl::Platform> platforms = getPlatforms();
 	if (platforms.empty())
@@ -237,17 +245,20 @@ void cl_zogminer::doForAllDevices(unsigned _platformId, function<void(cl::Device
 		return;
 
 	vector<cl::Device> devices = getDevices(platforms, _platformId);
-	for (cl::Device const& device: devices)
-		_callback(device);
+
+	unsigned _i = 0;
+	for (cl::Device const& device: devices) {
+		_callback(_platformId, _i++, device);
+	}
 }
 
 void cl_zogminer::listDevices()
 {
-	string outString ="\nListing OpenCL devices.\nFORMAT: [deviceID] deviceName\n";
+	string outString ="\nListing OpenCL devices.\nFORMAT: [platformID][deviceID] deviceName\n";
 	unsigned int i = 0;
-	doForAllDevices([&outString, &i](cl::Device const _device)
+	doForAllDevices([&outString, &i](unsigned _plat, unsigned _dev, cl::Device const _device)
 		{
-			outString += "[" + to_string(i) + "] " + _device.getInfo<CL_DEVICE_NAME>() + "\n";
+			outString += "[" + to_string(_plat) + "]" + "[" + to_string(_dev) + "] " + _device.getInfo<CL_DEVICE_NAME>() + "\n";
 			outString += "\tCL_DEVICE_TYPE: ";
 			switch (_device.getInfo<CL_DEVICE_TYPE>())
 			{

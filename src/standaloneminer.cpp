@@ -237,7 +237,10 @@ int main(int argc, char* argv[])
 	
 	if(GetBoolArg("-listdevices", false)) {
 		//Generic Things
-		std::cout << "Number of Platforms:" << cl_zogminer::getNumPlatforms << "\n";
+
+		
+
+		std::cout << "Number of Platforms: " << cl_zogminer::getNumPlatforms() << "\n \n";
 		cl_zogminer::listDevices();
 		return 0;
 	}

@@ -1398,7 +1398,13 @@ public:
         VECTOR_CLASS<Platform>* platforms)
     {
         cl_uint n = 0;
+
+        if( platforms == NULL ) {
+            return detail::errHandler(CL_INVALID_ARG_VALUE, __GET_PLATFORM_IDS_ERR);
+        }
+
         cl_int err = ::clGetPlatformIDs(0, NULL, &n);
+
         if (err != CL_SUCCESS) {
             return detail::errHandler(err, __GET_PLATFORM_IDS_ERR);
         }
@@ -1411,6 +1417,7 @@ public:
         }
 
         platforms->assign(&ids[0], &ids[n]);
+
         return CL_SUCCESS;
     }
 };
