@@ -23,7 +23,7 @@
 #undef min
 #undef max
 
-//#define DEBUG
+#define DEBUG
 
 using namespace std;
 
@@ -308,10 +308,10 @@ bool cl_zogminer::init(
 
 		// use selected device
 		cl::Device& device = devices[min<unsigned>(_deviceId, devices.size() - 1)];
-		cl::Device& device_2 = devices[min<unsigned>(_deviceId, devices.size() - 1)];
+		//cl::Device& device_2 = devices[min<unsigned>(_deviceId, devices.size() - 1)];
 		string device_version = device.getInfo<CL_DEVICE_VERSION>();
 		CL_LOG("Using device: " << device.getInfo<CL_DEVICE_NAME>().c_str() << "(" << device_version.c_str() << ")");
-		CL_LOG("Using device: " << device_2.getInfo<CL_DEVICE_NAME>().c_str() << "(" << device_version.c_str() << ")");
+		//CL_LOG("Using device: " << device_2.getInfo<CL_DEVICE_NAME>().c_str() << "(" << device_version.c_str() << ")");
 		if (strncmp("OpenCL 1.0", device_version.c_str(), 10) == 0)
 		{
 			CL_LOG("OpenCL 1.0 is not supported.");
@@ -322,9 +322,9 @@ bool cl_zogminer::init(
 
 		// create context
 		m_context = cl::Context(vector<cl::Device>(&device, &device + 1));
-		m_context_2 = cl::Context(vector<cl::Device>(&device_2, &device_2 + 1));
+		//m_context_2 = cl::Context(vector<cl::Device>(&device_2, &device_2 + 1));
 		m_queue = cl::CommandQueue(m_context, device);
-		m_queue_2 = cl::CommandQueue(m_context_2, device_2);
+		//m_queue_2 = cl::CommandQueue(m_context_2, device_2);
 
 		// make sure that global work size is evenly divisible by the local workgroup size
 		m_globalWorkSize = s_initialGlobalWorkSize;
@@ -352,11 +352,11 @@ bool cl_zogminer::init(
 		sources.push_back({ code.c_str(), code.size() });
 
 		cl::Program program(m_context, sources);
-		cl::Program program_2(m_context_2, sources);
+		//cl::Program program_2(m_context_2, sources);
 		try
 		{
 			program.build({ device });
-			program_2.build({ device_2 });
+			//program_2.build({ device_2 });
 			CL_LOG("Printing program log");
 			CL_LOG(program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(device).c_str());
 		}
@@ -370,8 +370,8 @@ bool cl_zogminer::init(
 		{
 			for (auto & _kernel : _kernels)
 				m_zogKernels.push_back(cl::Kernel(program, _kernel.c_str()));
-			for (auto & _kernel : _kernels)
-				m_zogKernels_2.push_back(cl::Kernel(program_2, _kernel.c_str()));
+			//for (auto & _kernel : _kernels)
+			//	m_zogKernels_2.push_back(cl::Kernel(program_2, _kernel.c_str()));
 		}
 		catch (cl::Error const& err)
 		{
@@ -387,17 +387,17 @@ bool cl_zogminer::init(
 		buf_ht[1] = cl::Buffer(m_context, CL_MEM_READ_WRITE, HT_SIZE, NULL, NULL);
 		buf_sols = cl::Buffer(m_context, CL_MEM_READ_WRITE, sizeof (sols_t), NULL, NULL);
 		
-		buf_dbg_2 = cl::Buffer(m_context_2, CL_MEM_READ_WRITE, dbg_size, NULL, NULL);
+/*		buf_dbg_2 = cl::Buffer(m_context_2, CL_MEM_READ_WRITE, dbg_size, NULL, NULL);
 		//TODO Dangger
 		m_queue_2.enqueueFillBuffer(buf_dbg_2, &zero, 1, 0, dbg_size, 0);
 		buf_ht_2[0] = cl::Buffer(m_context_2, CL_MEM_READ_WRITE, HT_SIZE, NULL, NULL);
 		buf_ht_2[1] = cl::Buffer(m_context_2, CL_MEM_READ_WRITE, HT_SIZE, NULL, NULL);
-		buf_sols_2 = cl::Buffer(m_context_2, CL_MEM_READ_WRITE, sizeof (sols_t), NULL, NULL);
+		buf_sols_2 = cl::Buffer(m_context_2, CL_MEM_READ_WRITE, sizeof (sols_t), NULL, NULL);*/
 
 		m_queue.flush();
-		m_queue_2.flush();
+		//m_queue_2.flush();
 		m_queue.finish();
-		m_queue_2.finish();
+		//m_queue_2.finish();
 
 	}
 	catch (cl::Error const& err)
@@ -437,13 +437,13 @@ void cl_zogminer::run(uint8_t *header, size_t header_len, sols_t * indices, uint
 		buf_blake_st = cl::Buffer(m_context, CL_MEM_READ_ONLY, sizeof (blake.h), NULL, NULL);
 		m_queue.enqueueWriteBuffer(buf_blake_st, true, 0, sizeof(blake.h), blake.h);
 
-		buf_blake_st_2 = cl::Buffer(m_context_2, CL_MEM_READ_ONLY, sizeof (blake.h), NULL, NULL);
-		m_queue_2.enqueueWriteBuffer(buf_blake_st_2, true, 0, sizeof(blake.h), blake.h);
+		//buf_blake_st_2 = cl::Buffer(m_context_2, CL_MEM_READ_ONLY, sizeof (blake.h), NULL, NULL);
+		//m_queue_2.enqueueWriteBuffer(buf_blake_st_2, true, 0, sizeof(blake.h), blake.h);
 
 		m_queue.flush();
-		m_queue_2.flush();
+		//m_queue_2.flush();
 		m_queue.finish();
-		m_queue_2.finish();
+		//m_queue_2.finish();
 
 		for (unsigned round = 0; round < PARAM_K; round++) {
 
@@ -452,8 +452,8 @@ void cl_zogminer::run(uint8_t *header, size_t header_len, sols_t * indices, uint
 			m_zogKernels[0].setArg(0, buf_ht[round % 2]);
 			m_queue.enqueueNDRangeKernel(m_zogKernels[0], cl::NullRange, cl::NDRange(global_ws), cl::NDRange(local_ws));
 
-			m_zogKernels_2[0].setArg(0, buf_ht_2[round % 2]);
-			m_queue_2.enqueueNDRangeKernel(m_zogKernels_2[0], cl::NullRange, cl::NDRange(global_ws), cl::NDRange(local_ws));
+			//m_zogKernels_2[0].setArg(0, buf_ht_2[round % 2]);
+			//m_queue_2.enqueueNDRangeKernel(m_zogKernels_2[0], cl::NullRange, cl::NDRange(global_ws), cl::NDRange(local_ws));
 			
 			if (!round) {
 				m_zogKernels[1+round].setArg(0, buf_blake_st);
@@ -470,7 +470,7 @@ void cl_zogminer::run(uint8_t *header, size_t header_len, sols_t * indices, uint
 			m_queue.enqueueNDRangeKernel(m_zogKernels[1+round], cl::NullRange, cl::NDRange(global_ws), cl::NDRange(local_ws));
 
 
-			if (!round) {
+/*			if (!round) {
 				m_zogKernels_2[1+round].setArg(0, buf_blake_st_2);
 				m_zogKernels_2[1+round].setArg(1, buf_ht_2[round % 2]);
 				global_ws = select_work_size_blake();
@@ -483,7 +483,7 @@ void cl_zogminer::run(uint8_t *header, size_t header_len, sols_t * indices, uint
 			m_zogKernels_2[1+round].setArg(2, buf_dbg_2);
 
 			m_queue_2.enqueueNDRangeKernel(m_zogKernels_2[1+round], cl::NullRange, cl::NDRange(global_ws), cl::NDRange(local_ws));
-		
+		*/
 		}
 		
 		m_zogKernels[10].setArg(0, buf_ht[0]);
@@ -492,25 +492,25 @@ void cl_zogminer::run(uint8_t *header, size_t header_len, sols_t * indices, uint
 		global_ws = NR_ROWS;
 		m_queue.enqueueNDRangeKernel(m_zogKernels[10], cl::NullRange, cl::NDRange(global_ws), cl::NDRange(local_ws)); 
 
-		m_zogKernels_2[10].setArg(0, buf_ht_2[0]);
+/*		m_zogKernels_2[10].setArg(0, buf_ht_2[0]);
 		m_zogKernels_2[10].setArg(1, buf_ht_2[1]);
 		m_zogKernels_2[10].setArg(2, buf_sols_2);
 		global_ws = NR_ROWS;
 		m_queue_2.enqueueNDRangeKernel(m_zogKernels_2[10], cl::NullRange, cl::NDRange(global_ws), cl::NDRange(local_ws)); 
-
+*/
 		sols_t	* sols;
-		sols_t	* sols_2;
+		//sols_t	* sols_2;
 		sols = (sols_t *)malloc(sizeof(*sols));
-		sols_2 = (sols_t *)malloc(sizeof(*sols));
+		//sols_2 = (sols_t *)malloc(sizeof(*sols));
 
 		m_queue.enqueueReadBuffer(buf_sols, true, 0, sizeof (*sols), sols);
 
-		m_queue_2.enqueueReadBuffer(buf_sols_2, true, 0, sizeof (*sols), sols_2);
+		//m_queue_2.enqueueReadBuffer(buf_sols_2, true, 0, sizeof (*sols), sols_2);
 
 		m_queue.flush();
-		m_queue_2.flush();
+		//m_queue_2.flush();
 		m_queue.finish();
-		m_queue_2.finish();
+		//m_queue_2.finish();
 
 		if (sols->nr > MAX_SOLS) {
 			/*fprintf(stderr, "%d (probably invalid) solutions were dropped!\n",
@@ -522,23 +522,23 @@ void cl_zogminer::run(uint8_t *header, size_t header_len, sols_t * indices, uint
 			sol_found += verify_sol(sols, sol_i);
 
 
-		if (sols_2->nr > MAX_SOLS) {
+		//if (sols_2->nr > MAX_SOLS) {
 			/*fprintf(stderr, "%d (probably invalid) solutions were dropped!\n",
 			sols->nr - MAX_SOLS);*/
-			sols_2->nr = MAX_SOLS;
-		}
+		//	sols_2->nr = MAX_SOLS;
+		//}
 
-		for (unsigned sol_i = 0; sol_i < sols_2->nr; sol_i++)
-			sol_found += verify_sol(sols_2, sol_i);
+		//for (unsigned sol_i = 0; sol_i < sols_2->nr; sol_i++)
+		//	sol_found += verify_sol(sols_2, sol_i);
 
 		//print_sols(sols, nonce, nr_valid_sols);
 
 		*n_sol = sol_found;
 		memcpy(indices, sols, sizeof(sols_t));
-		memcpy(indices+1, sols_2, sizeof(sols_t));
+		//memcpy(indices+1, sols_2, sizeof(sols_t));
 
 		free(sols);
-		free(sols_2);
+		//free(sols_2);
 
 	}
 	catch (cl::Error const& err)

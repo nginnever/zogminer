@@ -191,7 +191,7 @@ bool GPUSolver::GPUSolve200_9(uint8_t *header, size_t header_len,
 		
 		if(!(counter % 10))
 			std::cout << "Kernel run took " << milis << " ms. (" << avg << " H/s)" << std::endl;
-		std::cout << "Sols: " << n_sol << std::endl;
+		//std::cout << "Sols: " << n_sol << std::endl;
 		size_t checkedSols = n_sol;
 		size_t s = 0;
 //		size_t t = 0;

@@ -315,9 +315,17 @@ int main(int argc, char* argv[])
             0, 0
         };
 
-/*        miner.onSolutionFound([&](const EquihashSolution& solution) {
+/*        try
+        {
+        miner.onSolutionFound([&](const EquihashSolution& solution) {
             return sc.submit(&solution, const std::string& jobid);
-        });*/
+        });
+            throw 0;
+        }
+        catch (int e)
+        {
+            cout << "An exception occurred. submiting solution. " << e << '\n';
+        }*/
 
         scSig = &sc;
         signal(SIGINT, stratum_sigint_handler);

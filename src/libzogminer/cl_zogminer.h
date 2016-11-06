@@ -80,6 +80,8 @@ public:
 	static unsigned getNumDevices(unsigned _platformId = 0);
 	static std::string platform_info(unsigned _platformId = 0, unsigned _deviceId = 0);
 	static void listDevices();
+	static std::vector<cl::Device> getDevices(std::vector<cl::Platform> const& _platforms, unsigned _platformId);
+	static std::vector<cl::Platform> getPlatforms();
 
 	// Currently just prints memory of the GPU
 	static bool configureGPU(
@@ -112,8 +114,6 @@ private:
   static const size_t z_collision_bit_length = z_n / (z_k + 1);
   static const eh_index z_N = 1 << (z_collision_bit_length + 1);
 
-	static std::vector<cl::Device> getDevices(std::vector<cl::Platform> const& _platforms, unsigned _platformId);
-	static std::vector<cl::Platform> getPlatforms();
 	int compare_indices32(uint32_t* a, uint32_t* b, size_t n_current_indices) {
 		for(size_t i = 0; i < n_current_indices; ++i, ++a, ++b) {
 		    if(*a < *b) {
@@ -208,18 +208,17 @@ private:
 		return 1;
 	}
 	cl::Context m_context;
-	cl::Context m_context_2;
 	cl::CommandQueue m_queue;
-	cl::CommandQueue m_queue_2;
 	std::vector<cl::Kernel> m_zogKernels;
-	std::vector<cl::Kernel> m_zogKernels_2;
+	/*cl::Buffer m_digests[2];
+	cl::Buffer m_buckets;
+	cl::Buffer m_new_digest_index;
+	cl::Buffer m_blake2b_digest;
+	cl::Buffer m_dst_solutions;
+	cl::Buffer m_n_solutions;*/
 	cl::Buffer buf_ht[2];
 	cl::Buffer buf_sols;
 	cl::Buffer buf_dbg;
-
-	cl::Buffer buf_ht_2[2];
-	cl::Buffer buf_sols_2;
-	cl::Buffer buf_dbg_2;
 
 	uint64_t		nonce;
     uint64_t		total;
