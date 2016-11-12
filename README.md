@@ -43,11 +43,11 @@ $ sudo apt-get install \
       mesa-common-dev
 ```
 
-On Fedora-based systems:
+On RedHat (Fedora/CentOS) systems:
 
 ```
 $ sudo dnf install \
-      git pkgconfig automake autoconf ncurses-devel python wget \
+      git pkgconfig automake autoconf ncurses-devel python wget vim-commom \
       gtest-devel gcc gcc-c++ libtool patch opencl-headers mesa-libGL-devel
 ```
 
